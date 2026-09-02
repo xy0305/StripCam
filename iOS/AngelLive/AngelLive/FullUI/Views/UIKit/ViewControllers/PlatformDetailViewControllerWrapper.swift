@@ -1,0 +1,121 @@
+//
+//  PlatformDetailViewControllerWrapper.swift
+//  AngelLive
+//
+//  Created by pangchong on 10/21/25.
+//
+
+import SwiftUI
+import AngelLiveCore
+import AngelLiveDependencies
+
+/// 平台详情页面包装器
+/// 负责管理导航状态和命名空间，解决 PiP 模式下导航状态丢失的问题
+struct PlatformDetailViewControllerWrapper: View {
+    @Environment(PlatformDetailViewModel.self) var viewModel
+    @Environment(AppFavoriteModel.self) private var favoriteModel
+    @Environment(\.presentToast) private var presentToast
+
+    /// 共享导航状态 - 在 PiP 背景/前台切换时保持稳定
+    @State private var navigationState = LiveRoomNavigationState()
+    /// 共享命名空间 - 用于 zoom 过渡动画
+    @Namespace private var roomTransitionNamespace
+
+    var body: some View {
+        playerPresentation
+    }
+
+    private var baseView: some View {
+        PlatformDetailViewControllerRepresentable(
+            viewModel: viewModel,
+            navigationState: navigationState,
+            namespace: roomTransitionNamespace,
+            favoriteModel: favoriteModel,
+            presentToast: presentToast
+        )
+    }
+
+    private var playerPresentedBinding: Binding<Bool> {
+        Binding(
+            get: { navigationState.showPlayer },
+            set: { navigationState.showPlayer = $0 }
+        )
+    }
+
+    @ViewBuilder
+    private var playerDestination: some View {
+        if let room = navigationState.currentRoom {
+            DetailPlayerView(
+                viewModel: RoomInfoViewModel(room: room),
+                categoryRooms: navigationState.categoryRooms,
+                canLoadMoreCategoryRooms: canLoadMoreCategoryRooms,
+                onLoadMoreCategoryRooms: loadMoreCategoryRooms
+            )
+                .modifier(ZoomTransitionModifier(sourceID: room.roomId, namespace: roomTransitionNamespace))
+                .toolbar(.hidden, for: .tabBar)
+        }
+    }
+
+    private func canLoadMoreCategoryRooms() -> Bool {
+        guard let context = navigationState.categoryContext else { return false }
+        return viewModel.canLoadMoreRooms(
+            mainCategoryIndex: context.mainCategoryIndex,
+            subCategoryIndex: context.subCategoryIndex
+        )
+    }
+
+    @MainActor
+    private func loadMoreCategoryRooms() async -> [LiveModel] {
+        guard let context = navigationState.categoryContext else {
+            return navigationState.categoryRooms
+        }
+
+        let rooms = await viewModel.loadMoreRooms(
+            mainCategoryIndex: context.mainCategoryIndex,
+            subCategoryIndex: context.subCategoryIndex
+        )
+        navigationState.categoryRooms = rooms
+        return rooms
+    }
+
+    @ViewBuilder
+    private var playerPresentation: some View {
+        if #available(iOS 18.0, *) {
+            baseView
+                .fullScreenCover(isPresented: playerPresentedBinding) {
+                    playerDestination
+                }
+        } else {
+            baseView
+                .navigationDestination(isPresented: playerPresentedBinding) {
+                    playerDestination
+                }
+        }
+    }
+}
+
+/// UIKit 控制器的 UIViewControllerRepresentable 包装
+private struct PlatformDetailViewControllerRepresentable: UIViewControllerRepresentable {
+    let viewModel: PlatformDetailViewModel
+    let navigationState: LiveRoomNavigationState
+    let namespace: Namespace.ID
+    let favoriteModel: AppFavoriteModel
+    let presentToast: PresentToastAction
+
+    func makeUIViewController(context: Context) -> PlatformDetailViewController {
+        let vc = PlatformDetailViewController(
+            viewModel: viewModel,
+            navigationState: navigationState,
+            namespace: namespace,
+            favoriteModel: favoriteModel
+        )
+        let presenter = presentToast
+        vc.toastPresenter = { presenter($0) }
+        return vc
+    }
+
+    func updateUIViewController(_ uiViewController: PlatformDetailViewController, context: Context) {
+        let presenter = presentToast
+        uiViewController.toastPresenter = { presenter($0) }
+    }
+}

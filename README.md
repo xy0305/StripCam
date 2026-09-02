@@ -1,62 +1,116 @@
-# StripCam
+# Angel Live
 
-一个 **Stripchat 第三方 iOS 播放器**，UI 参考 [AngelLive](https://github.com/pcccccc/AngelLive) 的原生克制风格（侧边栏分类 + 直播网格 + 沉浸式竖屏播放页 + 右侧滑入的清晰度面板），核心能力对照 Stripchat 插件脚本实现：
+[![CI](https://github.com/pcccccc/AngelLive/actions/workflows/ci.yml/badge.svg)](https://github.com/pcccccc/AngelLive/actions/workflows/ci.yml)
 
-- 完整分类目录（推荐 / 地区 / 类型 / 情侣 / 男主播 / 我的最爱）
-- 实时封面 + 主播信息（观看数、HD、状态）
-- **最高画质 + 声音**：解析多条 CDN 的 HLS 主播放列表，自动选择最高码率，并支持手动切换清晰度 / 线路
-- 本地收藏、主播搜索、Cookie 登录（我的最爱）
+<p align="center">
+  <img src="./ScreenShot/logo.png" alt="Angel Live Logo" width="120" />
+</p>
 
-> ⚠️ 本应用为**第三方非官方**播放器，与 Stripchat 官方无关，仅供学习交流使用。请遵守当地法律法规，仅观看你有权访问的内容。
+## 问题反馈
 
-## 系统要求
+[Telegram](https://t.me/angelliveapp) | [提交 issue](https://github.com/pcccccc/AngelLive/issues/new/choose)
 
-- Xcode 16.0+（项目使用文件系统同步组格式）
-- iOS 17.0+
-- 语言：Swift 5
+## 背景：
 
-## 运行
+遇到一个非常好的项目:  [dart_simple_live](https://github.com/xiaoyaocz/dart_simple_live/) 基于项目，进行了适配。
 
-1. 用 Xcode 打开 `StripCam.xcodeproj`
-2. 在 `StripCam` target → Signing & Capabilities 中选择你的开发者团队
-3. 选择 iPhone / iPad 模拟器或真机运行
+## 支持平台：
 
-## 「我的最爱」使用说明
+适配26系统，liquid glass
 
-「我的最爱」需要登录后的 Cookie：
+iOS 17+
 
-1. 浏览器登录 [stripchat.com](https://stripchat.com)
-2. 打开开发者工具 → Network，复制任意请求头里的完整 `Cookie`
-3. 打开 App → 设置 → 粘贴 Cookie → 保存
-4. 回到侧边栏进入「❤️ 我的最爱」
+macOS 15+
 
-Cookie 仅保存在本机（UserDefaults），不会上传。
+tvOS 17+
 
-## 直播流解析原理
 
-对应插件脚本 `_resolvePlayableStreams`：
+## 开发环境配置：
 
-- CDN：`edge-hls.saawsedge.com` / `edge-hls.growcdnssedge.com` / `edge-hls.doppiocdn.com`
-- 直接构造各清晰度：`/hls/{id}/master/{id}_{quality}.m3u8?playlistType=lowLatency`
-- 拉取 `_auto.m3u8` 主播放列表，解析 `#EXT-X-STREAM-INF` 变体（含 `BANDWIDTH` / `RESOLUTION` / `NAME`）与 `pkey`（MOUFLON PSCH）
-- 按码率从高到低排序；「自动」档让 AVPlayer 不限制码率，优先选择最高画质（视频 + 音频多路复用）
+> ⚠️ **重要提示**：本项目默认使用 [KSPlayer](https://github.com/TracyPlayer/KSPlayer) LGPL分支 播放器内核。可通过环境变量 `USE_VLC=1` 切换为 VLCKit 内核（两者互斥，不能同时引入，否则内嵌的 FFmpeg 符号会冲突）。
 
-## 目录结构
+1. **克隆项目**：
+   ```bash
+   git clone https://github.com/pcccccc/AngelLive.git
+   cd AngelLive
+   ```
 
-```
-StripCam/
-├── StripCamApp.swift              # App 入口（音频会话配置）
-├── ContentView.swift              # 根视图（NavigationSplitView 侧边栏）
-├── Support/                       # 常量 / 模型 / API / 收藏存储
-├── ViewModels/                    # 首页 / 搜索 / 播放器状态
-├── Views/
-│   ├── Home/                      # 直播网格
-│   ├── Player/                    # 播放页 / 清晰度面板 / 主播信息
-│   ├── Components/                # 卡片 / 网络图片
-│   └── ...                        # 收藏 / 搜索 / 设置
-└── Assets.xcassets
-```
+2. **打开项目**：
+   使用 Xcode 打开 `AngelLive.workspace`
 
-## License
+3. **配置 API Keys（可选）**：
+   - 在 `SimpleLiveTVOS/Other/Info.plist` 中将 `YOUR_BUGSNAG_API_KEY_HERE` 替换为你的 Bugsnag API key
 
-MIT
+4. **运行项目**：
+   选择模拟器或真机设备运行
+
+## 感谢开源项目：
+
+##引用开源项目：
+
+[Lakr233/ColorfulX](https://github.com/Lakr233/ColorfulX)
+
+[Alamofire](https://github.com/Alamofire/Alamofire)
+
+[DanmakuKit](https://github.com/qyz777/DanmakuKit)
+
+[GZipSwift](https://github.com/1024jp/GzipSwift)
+
+[Kingfisher](https://github.com/onevcat/Kingfisher)
+
+[KSPlayer](https://github.com/TracyPlayer/KSPlayer) `FLV源播放`
+
+[FFMPEG](https://github.com/FFmpeg/FFmpeg)
+
+[Shimmer](https://github.com/markiv/SwiftUI-Shimmer)
+
+[SimpleToast](https://github.com/sanzaru/SimpleToast)
+
+[Starscream](https://github.com/daltoniam/Starscream)
+
+[SWCompression](https://github.com/tsolomko/SWCompression)
+
+[AcknowList](https://github.com/vtourraine/AcknowList)
+
+[swiftui-toasts](https://github.com/sunghyun-k/swiftui-toasts)
+
+[UDPBroadcastConnection](https://github.com/gunterhager/UDPBroadcastConnection)
+
+[Pow](https://github.com/EmergeTools/Pow)
+
+[InjectionNext](https://github.com/johnno1962/InjectionNext)
+
+[SwiftyJSON](https://github.com/SwiftyJSON/SwiftyJSON)
+
+[swift-nio](https://github.com/apple/swift-nio.git)
+
+[swift-protobuf](https://github.com/apple/swift-protobuf.git)
+
+
+## 特别感谢：
+
+感谢以上开源仓库作者为开发者做出的贡献。
+
+---
+
+感谢Telegram群组中的各位发现的问题与建议。
+
+---
+
+<a href="https://www.bugsnag.com" target="_blank"><img src="https://images.typeform.com/images/QKuaAssrFCq7/image/default-firstframe.png" alt="Bugsnag Logo (Main) logo." width="150"></a>
+
+感谢bugsnag提供的开源许可，在此表达我的感谢。
+
+## 支持：
+
+[爱发电](https://afdian.com/a/laopc)
+
+## Star History
+
+<a href="https://www.star-history.com/#pcccccc/SimpleLiveTVOS&Date">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=pcccccc/SimpleLiveTVOS&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=pcccccc/SimpleLiveTVOS&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=pcccccc/SimpleLiveTVOS&type=Date" />
+ </picture>
+</a>

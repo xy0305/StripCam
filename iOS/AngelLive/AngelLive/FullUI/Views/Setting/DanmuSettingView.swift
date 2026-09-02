@@ -1,0 +1,152 @@
+//
+//  DanmuSettingView.swift
+//  AngelLive
+//
+//  Created by pangchong on 10/17/25.
+//
+
+import SwiftUI
+import AngelLiveCore
+
+struct DanmuSettingView: View {
+    @State private var danmuModel = DanmuSettingModel()
+    @State private var alphaText = ""
+
+    var body: some View {
+        List {
+            // 基本设置
+            Section {
+                Toggle("开启弹幕", isOn: $danmuModel.showDanmu)
+                    .tint(AppConstants.Colors.accent)
+
+                Toggle("开启彩色弹幕", isOn: $danmuModel.showColorDanmu)
+                    .tint(AppConstants.Colors.accent)
+            } header: {
+                Text("基本设置")
+            }
+
+            // 字体设置
+            Section {
+                VStack(alignment: .leading, spacing: AppConstants.Spacing.md) {
+                    HStack {
+                        Text("字体大小")
+                            .foregroundStyle(AppConstants.Colors.primaryText)
+                        Spacer()
+                        Text("\(danmuModel.danmuFontSize)")
+                            .foregroundStyle(AppConstants.Colors.secondaryText)
+                    }
+
+                    HStack(spacing: AppConstants.Spacing.md) {
+                        Button {
+                            if danmuModel.danmuFontSize > 15 {
+                                danmuModel.danmuFontSize -= 5
+                            }
+                        } label: {
+                            Image(systemName: "minus.circle.fill")
+                                .font(.title2)
+                                .foregroundStyle(AppConstants.Colors.error.gradient)
+                        }
+                        .buttonStyle(.borderless)
+
+                        Button {
+                            if danmuModel.danmuFontSize > 10 {
+                                danmuModel.danmuFontSize -= 1
+                            }
+                        } label: {
+                            Image(systemName: "minus.circle")
+                                .font(.title3)
+                                .foregroundStyle(AppConstants.Colors.warning.gradient)
+                        }
+                        .buttonStyle(.borderless)
+
+                        Spacer()
+
+                        Text("这是测试弹幕")
+                            .font(.system(size: CGFloat(danmuModel.danmuFontSize)))
+                            .foregroundStyle(AppConstants.Colors.primaryText)
+
+                        Spacer()
+
+                        Button {
+                            if danmuModel.danmuFontSize < 100 {
+                                danmuModel.danmuFontSize += 1
+                            }
+                        } label: {
+                            Image(systemName: "plus.circle")
+                                .font(.title3)
+                                .foregroundStyle(AppConstants.Colors.success.gradient)
+                        }
+                        .buttonStyle(.borderless)
+
+                        Button {
+                            if danmuModel.danmuFontSize < 95 {
+                                danmuModel.danmuFontSize += 5
+                            }
+                        } label: {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.title2)
+                                .foregroundStyle(AppConstants.Colors.link.gradient)
+                        }
+                        .buttonStyle(.borderless)
+                    }
+                }
+                .padding(.vertical, AppConstants.Spacing.sm)
+            } header: {
+                Text("字体设置")
+            }
+
+            // 显示设置
+            Section {
+                VStack(alignment: .leading, spacing: AppConstants.Spacing.md) {
+                    HStack {
+                        Text("透明度")
+                        Spacer()
+                        Text(String(format: "%.1f", danmuModel.danmuAlpha))
+                            .foregroundStyle(AppConstants.Colors.secondaryText)
+                    }
+
+                    Slider(value: $danmuModel.danmuAlpha, in: 0.1...1.0, step: 0.1)
+                        .tint(AppConstants.Colors.link)
+                }
+
+                Picker("弹幕速度", selection: $danmuModel.danmuSpeedIndex) {
+                    ForEach(DanmuSettingModel.danmuSpeedArray.indices, id: \.self) { index in
+                        Text(DanmuSettingModel.danmuSpeedArray[index])
+                            .tag(index)
+                    }
+                }
+                .onChange(of: danmuModel.danmuSpeedIndex) { _, newValue in
+                    danmuModel.getDanmuSpeed(index: newValue)
+                }
+
+                Picker("显示区域", selection: $danmuModel.danmuAreaIndex) {
+                    ForEach(DanmuSettingModel.danmuAreaArray.indices, id: \.self) { index in
+                        Text(DanmuSettingModel.danmuAreaArray[index])
+                            .tag(index)
+                    }
+                }
+            } header: {
+                Text("显示设置")
+            }
+
+            Section("关键词屏蔽") {
+                NavigationLink {
+                    DanmakuKeywordBlocklistView(settings: danmuModel)
+                } label: {
+                    HStack {
+                        Label("管理屏蔽关键词", systemImage: "text.badge.xmark")
+                        Spacer()
+                        Text("\(danmuModel.blockedKeywords.count)")
+                            .foregroundStyle(AppConstants.Colors.secondaryText)
+                    }
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+        .navigationTitle("弹幕")
+        .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            alphaText = String(format: "%.1f", danmuModel.danmuAlpha)
+        }
+    }
+}
