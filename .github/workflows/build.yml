@@ -32,3 +32,11 @@ jobs:
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGN_IDENTITY=""
+
+      - name: Verify plugin bundled
+        run: |
+          APP="build/Build/Products/Debug-iphonesimulator/AngelLive.app"
+          echo "=== Plugins folder ==="
+          find "$APP" -iname '*stripchat*' -o -iname 'lp_plugin_*' 2>/dev/null | head -20
+          echo "=== app root (first 30) ==="
+          ls -1 "$APP" | head -30

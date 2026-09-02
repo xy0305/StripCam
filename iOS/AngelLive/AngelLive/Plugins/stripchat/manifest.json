@@ -1,0 +1,9 @@
+{
+  "pluginId": "stripchat",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "displayName": "Stripchat",
+  "platformDescription": "Stripchat 第三方直播（HLS 最高画质 + 声音）",
+  "liveTypes": ["stripchat"],
+  "entry": "stripchat.js"
+}
