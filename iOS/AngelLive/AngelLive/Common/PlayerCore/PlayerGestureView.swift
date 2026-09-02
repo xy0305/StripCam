@@ -290,7 +290,7 @@ struct PlayerGestureView: View {
         let isCurrentlyLandscape = UIApplication.isLandscape
         let targetOrientation: UIInterfaceOrientationMask = isCurrentlyLandscape ? .portrait : .landscape
 
-        KSOptions.supportedInterfaceOrientations = targetOrientation
+        AppOrientation.update(targetOrientation)
 
         if #available(iOS 16.0, *) {
             guard let windowScene = UIApplication.shared.connectedScenes
@@ -311,7 +311,7 @@ struct PlayerGestureView: View {
                 }
                 // 旋转完成后恢复自由旋转，允许后续横屏自动全屏
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    KSOptions.supportedInterfaceOrientations = .allButUpsideDown
+                    AppOrientation.update(.allButUpsideDown)
                     if let rootVC = windowScene.windows.first(where: { $0.isKeyWindow })?.rootViewController {
                         rootVC.setNeedsUpdateOfSupportedInterfaceOrientations()
                     }

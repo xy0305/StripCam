@@ -71,15 +71,11 @@ class AppDelegate: NSObject, UIApplicationDelegate {
             await PlatformSessionLiveParseBridge.syncFromPersistedSessionsOnLaunch()
         }
 
-        // 初始化屏幕方向设置
-        // 将 KSPlayer 日志同时打印到 Xcode 控制台和 App 内开发者控制台
-        KSOptions.logger = KSPlayerConsoleBridge()
-        KSOptions.logLevel = .debug
+        // 方向默认值先写本地，避免冷启动就碰到 KSPlayer 静态初始化。
         if AppConstants.Device.isIPad {
-            KSOptions.supportedInterfaceOrientations = .all
+            AppOrientation.mask = .all
         } else {
-            // iPhone 初始只支持竖屏，播放器页面会动态修改
-            KSOptions.supportedInterfaceOrientations = .portrait
+            AppOrientation.mask = .portrait
         }
         return true
     }
@@ -118,6 +114,15 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     /// 控制应用支持的屏幕方向
     /// 这是控制方向的唯一正确方法，SwiftUI 项目也需要这个 AppDelegate 方法
     func application(_ application: UIApplication, supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask {
-        return KSOptions.supportedInterfaceOrientations
+        return AppOrientation.mask
+    }
+}
+
+enum AppOrientation {
+    static var mask: UIInterfaceOrientationMask = .portrait
+
+    static func update(_ value: UIInterfaceOrientationMask) {
+        mask = value
+        KSOptions.supportedInterfaceOrientations = value
     }
 }

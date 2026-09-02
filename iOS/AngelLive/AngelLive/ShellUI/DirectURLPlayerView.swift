@@ -144,14 +144,14 @@ struct DirectURLPlayerView: View {
             playbackSession.attach(playerLayer: playerCoordinator.playerLayer)
             // iPhone 支持横屏旋转
             if !AppConstants.Device.isIPad {
-                KSOptions.supportedInterfaceOrientations = .allButUpsideDown
+                AppOrientation.update(.allButUpsideDown)
             }
         }
         .onDisappear {
             playbackSession.invalidate()
             // iPhone 返回时强制竖屏
             if !AppConstants.Device.isIPad {
-                KSOptions.supportedInterfaceOrientations = .portrait
+                AppOrientation.update(.portrait)
                 guard let windowScene = UIApplication.shared.connectedScenes
                     .compactMap({ $0 as? UIWindowScene })
                     .first else { return }

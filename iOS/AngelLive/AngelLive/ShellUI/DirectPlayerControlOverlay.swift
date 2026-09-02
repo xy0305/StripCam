@@ -310,7 +310,7 @@ struct DirectPlayerControlOverlay: View {
     private func handleBackButton() {
         if !AppConstants.Device.isIPad && isCurrentLandscape {
             // iPhone 横屏：先切回竖屏
-            KSOptions.supportedInterfaceOrientations = .allButUpsideDown
+            AppOrientation.update(.allButUpsideDown)
 
             guard let windowScene = UIApplication.shared.connectedScenes
                 .compactMap({ $0 as? UIWindowScene })
@@ -334,7 +334,7 @@ struct DirectPlayerControlOverlay: View {
 
     private func toggleOrientation() {
         let targetOrientation: UIInterfaceOrientationMask = isCurrentLandscape ? .portrait : .landscapeRight
-        KSOptions.supportedInterfaceOrientations = targetOrientation
+        AppOrientation.update(targetOrientation)
 
         guard let windowScene = UIApplication.shared.connectedScenes
             .compactMap({ $0 as? UIWindowScene })

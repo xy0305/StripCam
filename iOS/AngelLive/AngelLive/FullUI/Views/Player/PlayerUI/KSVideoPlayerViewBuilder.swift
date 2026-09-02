@@ -310,7 +310,7 @@ public enum KSVideoPlayerViewBuilder {
         }
         
         // 更新 KSOptions
-        KSOptions.supportedInterfaceOrientations = targetOrientation
+        AppOrientation.update(targetOrientation)
 
         // 先通知 ViewController 刷新支持的方向
         if let rootVC = windowScene.windows.first(where: { $0.isKeyWindow })?.rootViewController {
@@ -326,7 +326,7 @@ public enum KSVideoPlayerViewBuilder {
             }
             // 旋转完成后恢复自由旋转
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                KSOptions.supportedInterfaceOrientations = .allButUpsideDown
+                AppOrientation.update(.allButUpsideDown)
                 if let rootVC = windowScene.windows.first(where: { $0.isKeyWindow })?.rootViewController {
                     rootVC.setNeedsUpdateOfSupportedInterfaceOrientations()
                 }
@@ -360,7 +360,7 @@ public enum KSVideoPlayerViewBuilder {
             }
 
             // 更新 KSOptions
-            KSOptions.supportedInterfaceOrientations = .portrait
+            AppOrientation.update(.portrait)
 
             // 先通知 ViewController 刷新支持的方向
             if let rootVC = windowScene.windows.first(where: { $0.isKeyWindow })?.rootViewController {
@@ -376,7 +376,7 @@ public enum KSVideoPlayerViewBuilder {
                 }
                 // 旋转完成后恢复自由旋转
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    KSOptions.supportedInterfaceOrientations = .allButUpsideDown
+                    AppOrientation.update(.allButUpsideDown)
                     if let rootVC = windowScene.windows.first(where: { $0.isKeyWindow })?.rootViewController {
                         rootVC.setNeedsUpdateOfSupportedInterfaceOrientations()
                     }
@@ -385,7 +385,7 @@ public enum KSVideoPlayerViewBuilder {
 
         } else {
             // iOS 16 以下使用传统方式
-            KSOptions.supportedInterfaceOrientations = .portrait
+            AppOrientation.update(.portrait)
 
             // 使用私有 API（仅用于 iOS 16 以下）
             UIDevice.current.setValue(UIInterfaceOrientation.portrait.rawValue, forKey: "orientation")

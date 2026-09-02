@@ -324,7 +324,7 @@ struct DetailPlayerView: View {
         .onChange(of: isVerticalLiveMode) { _, isVertical in
             // 竖屏直播模式下锁定竖屏，不允许自动横屏全屏
             if !AppConstants.Device.isIPad && isVertical {
-                KSOptions.supportedInterfaceOrientations = .portrait
+                AppOrientation.update(.portrait)
                 if let rootVC = UIApplication.shared.connectedScenes
                     .compactMap({ $0 as? UIWindowScene })
                     .first?.windows.first(where: { $0.isKeyWindow })?.rootViewController {
@@ -362,7 +362,7 @@ struct DetailPlayerView: View {
             )
             // iPhone 进入播放页时允许自由旋转，横屏时自动全屏
             if !AppConstants.Device.isIPad {
-                KSOptions.supportedInterfaceOrientations = .allButUpsideDown
+                AppOrientation.update(.allButUpsideDown)
                 if let rootVC = UIApplication.shared.connectedScenes
                     .compactMap({ $0 as? UIWindowScene })
                     .first?.windows.first(where: { $0.isKeyWindow })?.rootViewController {
@@ -381,7 +381,7 @@ struct DetailPlayerView: View {
             // iPhone 返回时强制竖屏
             if !AppConstants.Device.isIPad {
                 // 设置支持的方向为竖屏
-                KSOptions.supportedInterfaceOrientations = .portrait
+                AppOrientation.update(.portrait)
 
                     guard let windowScene = UIApplication.shared.connectedScenes
                     .compactMap({ $0 as? UIWindowScene })
@@ -412,7 +412,7 @@ struct DetailPlayerView: View {
     /// 这样既保留用户主动横屏,又允许之后旋转/双击切回竖屏。
     private func reassertLandscapeOrientation() {
         guard !AppConstants.Device.isIPad else { return }
-        KSOptions.supportedInterfaceOrientations = .landscape
+        AppOrientation.update(.landscape)
         guard let windowScene = UIApplication.shared.connectedScenes
             .compactMap({ $0 as? UIWindowScene })
             .first else { return }
@@ -430,7 +430,7 @@ struct DetailPlayerView: View {
             }
             // 旋转完成后恢复自由旋转,允许用户后续旋转/双击切回竖屏
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                KSOptions.supportedInterfaceOrientations = .allButUpsideDown
+                AppOrientation.update(.allButUpsideDown)
                 if let rootVC = windowScene.windows.first(where: { $0.isKeyWindow })?.rootViewController {
                     rootVC.setNeedsUpdateOfSupportedInterfaceOrientations()
                 }

@@ -210,7 +210,7 @@ struct VideoControllerView: View {
             return
         } else if !AppConstants.Device.isIPad && UIApplication.isLandscape {
             // iPhone 横屏，切换回竖屏
-            KSOptions.supportedInterfaceOrientations = .portrait
+            AppOrientation.update(.portrait)
 
             // 使用 iOS 16+ API
             if #available(iOS 16.0, *) {
@@ -235,7 +235,7 @@ struct VideoControllerView: View {
                     }
                     // 旋转完成后恢复自由旋转
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                        KSOptions.supportedInterfaceOrientations = .allButUpsideDown
+                        AppOrientation.update(.allButUpsideDown)
                         if let rootVC = windowScene.windows.first(where: { $0.isKeyWindow })?.rootViewController {
                             rootVC.setNeedsUpdateOfSupportedInterfaceOrientations()
                         }
@@ -249,7 +249,7 @@ struct VideoControllerView: View {
         } else {
             // 竖屏，返回上一页
             dismiss()
-            KSOptions.supportedInterfaceOrientations = .portrait
+            AppOrientation.update(.portrait)
         }
     }
 

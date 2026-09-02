@@ -551,7 +551,8 @@ struct ContentView: View {
                     SettingView()
                 }
             }
-            .tabViewStyle(.sidebarAdaptable)
+            // iPhone 不能用 sidebarAdaptable：那是 iPad 侧边栏样式，
+            // 在 iOS 26/27 真机上会在首帧布局时直接崩。
             .tabBarMinimizeBehavior(.onScrollDown)
         } else {
            return TabView(selection: $selectedTab) {

@@ -595,7 +595,7 @@ struct UnifiedPlayerControlOverlay: View {
             return
         } else if !AppConstants.Device.isIPad && isCurrentLandscape {
             // iPhone 横屏：先切回竖屏，旋转完成后恢复自由旋转
-            KSOptions.supportedInterfaceOrientations = .portrait
+            AppOrientation.update(.portrait)
 
             guard let windowScene = UIApplication.shared.connectedScenes
                 .compactMap({ $0 as? UIWindowScene })
@@ -616,7 +616,7 @@ struct UnifiedPlayerControlOverlay: View {
                 }
                 // 旋转完成后恢复自由旋转，允许再次横屏自动全屏
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    KSOptions.supportedInterfaceOrientations = .allButUpsideDown
+                    AppOrientation.update(.allButUpsideDown)
                     if let rootVC = windowScene.windows.first(where: { $0.isKeyWindow })?.rootViewController {
                         rootVC.setNeedsUpdateOfSupportedInterfaceOrientations()
                     }
@@ -625,7 +625,7 @@ struct UnifiedPlayerControlOverlay: View {
         } else {
             // 竖屏：返回上一页
             dismiss()
-            KSOptions.supportedInterfaceOrientations = .portrait
+            AppOrientation.update(.portrait)
         }
     }
 
@@ -636,7 +636,7 @@ struct UnifiedPlayerControlOverlay: View {
         }
 
         let targetOrientation: UIInterfaceOrientationMask = isCurrentLandscape ? .portrait : .landscapeRight
-        KSOptions.supportedInterfaceOrientations = targetOrientation
+        AppOrientation.update(targetOrientation)
 
         guard let windowScene = UIApplication.shared.connectedScenes
             .compactMap({ $0 as? UIWindowScene })
@@ -658,7 +658,7 @@ struct UnifiedPlayerControlOverlay: View {
             }
             // 旋转完成后恢复自由旋转
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                KSOptions.supportedInterfaceOrientations = .allButUpsideDown
+                AppOrientation.update(.allButUpsideDown)
                 if let rootVC = windowScene.windows.first(where: { $0.isKeyWindow })?.rootViewController {
                     rootVC.setNeedsUpdateOfSupportedInterfaceOrientations()
                 }

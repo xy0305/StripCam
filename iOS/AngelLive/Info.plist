@@ -20,6 +20,10 @@
 		<key>NSAllowsArbitraryLoads</key>
 		<true/>
 	</dict>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>用于保存直播封面或截图到相册</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>用于保存直播封面或截图到相册</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_angellive-cookie._tcp</string>

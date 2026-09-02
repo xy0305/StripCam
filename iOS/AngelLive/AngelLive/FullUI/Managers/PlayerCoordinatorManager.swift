@@ -15,16 +15,26 @@ import AngelLiveCore
 @MainActor
 @Observable
 final class PlayerCoordinatorManager {
-    /// 全局共享的播放器协调器
-    let coordinator: KSVideoPlayer.Coordinator
+    /// 全局共享的播放器协调器。延后到真正进播放页再创建，
+    /// 避免冷启动就触发 KSPlayer / FFmpeg 动态库加载。
+    private var storedCoordinator: KSVideoPlayer.Coordinator?
+
+    var coordinator: KSVideoPlayer.Coordinator {
+        if let storedCoordinator {
+            return storedCoordinator
+        }
+        let created = KSVideoPlayer.Coordinator()
+        storedCoordinator = created
+        Logger.debug("🟢 PlayerCoordinatorManager 首次创建播放器协调器", category: .player)
+        return created
+    }
 
     /// 是否已检测到视频尺寸（用于控制播放器可见性）
     /// 保存在全局管理器中，避免横竖屏切换时重置
     var hasDetectedSize: Bool = false
 
     init() {
-        self.coordinator = KSVideoPlayer.Coordinator()
-        Logger.debug("🟢 PlayerCoordinatorManager init - 创建全局播放器协调器", category: .player)
+        Logger.debug("🟢 PlayerCoordinatorManager init", category: .player)
     }
 
     deinit {
@@ -36,15 +46,14 @@ final class PlayerCoordinatorManager {
     func reset() {
         Logger.debug("🔄 PlayerCoordinatorManager reset - 重置播放器状态", category: .player)
 
-        // 停止播放并完全重置 playerLayer
-        if let playerLayer = coordinator.playerLayer {
-            playerLayer.pause()
-            playerLayer.stop()
+        if let storedCoordinator {
+            if let playerLayer = storedCoordinator.playerLayer {
+                playerLayer.pause()
+                playerLayer.stop()
+            }
+            storedCoordinator.isScaleAspectFill = false
+            storedCoordinator.isMaskShow = false
         }
-
-        // 重置状态
-        coordinator.isScaleAspectFill = false
-        coordinator.isMaskShow = false
         hasDetectedSize = false
     }
 

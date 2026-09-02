@@ -77,6 +77,22 @@ jobs:
           # 安装后一打开就被系统 SIGKILL。
           rm -f "$APP/archived-expanded-entitlements.xcent"
           rm -f "$APP/embedded.mobileprovision"
+          # FFmpegKit 在未签名 archive 里会塞进 ~33KB 空壳 framework。
+          # iOS 启动会校验 Frameworks 下每个 Mach-O，空壳验签失败就 SIGKILL。
+          if [ -d "$APP/Frameworks" ]; then
+            find "$APP/Frameworks" -maxdepth 1 -name '*.framework' | while read -r fw; do
+              bin="$fw/$(basename "$fw" .framework)"
+              if [ -f "$bin" ]; then
+                sz=$(stat -f%z "$bin")
+                if [ "$sz" -lt 100000 ]; then
+                  echo "Removing stub framework $(basename "$fw") ($sz bytes)"
+                  rm -rf "$fw"
+                fi
+              fi
+            done
+            echo "=== Frameworks after strip ==="
+            ls -la "$APP/Frameworks"
+          fi
           rm -rf Payload StripCam-unsigned.ipa
           mkdir -p Payload
           ditto "$APP" "Payload/AngelLive.app"
