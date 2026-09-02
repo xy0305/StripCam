@@ -57,19 +57,8 @@ public enum KSVideoPlayerViewBuilder {
 
     @ViewBuilder
     static func subtitleButton(config: KSVideoPlayer.Coordinator) -> some View {
-        MenuView(selection: Binding {
-            config.playerLayer?.subtitleModel.selectedSubtitleInfo?.subtitleID
-        } set: { value in
-            let info = config.playerLayer?.subtitleModel.subtitleInfos.first { $0.subtitleID == value }
-            config.playerLayer?.select(subtitleInfo: info)
-        }) {
-            Text("Off").tag(nil as String?)
-            ForEach(config.playerLayer?.subtitleModel.subtitleInfos ?? [], id: \.subtitleID) { track in
-                Text(track.name).tag(track.subtitleID as String?)
-            }
-        } label: {
-            Image(systemName: "text.bubble")
-        }
+        // 字幕功能已禁用（kingslay 2.3.4 字幕 API 差异）
+        EmptyView()
     }
 
     @ViewBuilder
@@ -155,13 +144,8 @@ public enum KSVideoPlayerViewBuilder {
 
     @ViewBuilder
     static func recordButton(config: KSVideoPlayer.Coordinator) -> some View {
-        Button {
-            config.isRecord.toggle()
-        } label: {
-            Image(systemName: config.isRecord ? "video.fill" : "video")
-                .ksMenuLabelStyle()
-        }
-        .ksBorderlessButton()
+        // 录屏功能已禁用（kingslay 2.3.4 无 isRecord）
+        EmptyView()
     }
 
     @ViewBuilder

@@ -200,8 +200,7 @@ public struct KSVideoPlayerView: View {
     @MainActor
     public func openURL(_ url: URL, options: KSOptions? = nil) {
         if url.isSubtitle {
-            let info = URLSubtitleInfo(url: url)
-            model.config.playerLayer?.select(subtitleInfo: info)
+            // 字幕加载已禁用（kingslay 2.3.4 字幕 API 差异）
         } else {
             if let options {
                 model.options = options
