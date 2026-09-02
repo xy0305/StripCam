@@ -154,24 +154,16 @@ struct ContentView: View {
         @Bindable var manager = welcomeManager
 
         Group {
-            if #available(iOS 18.0, *) {
-                if AppConstants.Device.isIPad {
+            if AppConstants.Device.isIPad {
+                if #available(iOS 18.0, *) {
                     iPadTabView
                 } else {
-                    iPhoneTabView
-                        .background {
-                            iPhoneTabBarAccessories
-                        }
+                    iOS17iPadTabView
                 }
             } else {
-                if AppConstants.Device.isIPad {
-                    iOS17iPadTabView
-                } else {
-                    iOS17iPhoneTabView
-                        .background {
-                            iPhoneTabBarAccessories
-                        }
-                }
+                // iPhone 全程走 iOS 17 TabView。iOS 18/26 的 Tab() +
+                // sidebarAdaptable / search role 在 iOS 26/27 真机首帧会崩。
+                iOS17iPhoneTabView
             }
         }
         .environment(pluginAvailability)

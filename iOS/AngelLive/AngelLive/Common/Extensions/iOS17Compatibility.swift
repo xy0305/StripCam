@@ -39,11 +39,7 @@ struct MatchedTransitionSourceModifier: ViewModifier {
 /// iOS 版本兼容的 presentationSizing 修饰符
 struct WelcomePresentationModifier: ViewModifier {
     func body(content: Content) -> some View {
-        if #available(iOS 18.0, *) {
-            content.presentationSizing(.page.fitted(horizontal: true, vertical: false))
-        } else {
-            content
-        }
+        content
     }
 }
 

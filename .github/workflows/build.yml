@@ -92,7 +92,10 @@ jobs:
             done
             echo "=== Frameworks after strip ==="
             ls -la "$APP/Frameworks"
+            # 系统已有 libswiftCompatibilitySpan；侧载嵌入的这份容易验签失败。
+            rm -f "$APP/Frameworks/libswiftCompatibilitySpan.dylib"
           fi
+          python3 scripts/sanitize-app-plist.py "$APP/Info.plist"
           rm -rf Payload StripCam-unsigned.ipa
           mkdir -p Payload
           ditto "$APP" "Payload/AngelLive.app"
