@@ -8,6 +8,7 @@
 import SwiftUI
 import AngelLiveCore
 import AngelLiveDependencies
+@preconcurrency import KSPlayer
 import Kingfisher
 internal import AVFoundation
 
@@ -74,7 +75,6 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         // 将 KSPlayer 日志同时打印到 Xcode 控制台和 App 内开发者控制台
         KSOptions.logger = KSPlayerConsoleBridge()
         KSOptions.logLevel = .debug
-        KSOptions.hudLog = false
         if AppConstants.Device.isIPad {
             KSOptions.supportedInterfaceOrientations = .all
         } else {
@@ -118,16 +118,6 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     /// 控制应用支持的屏幕方向
     /// 这是控制方向的唯一正确方法，SwiftUI 项目也需要这个 AppDelegate 方法
     func application(_ application: UIApplication, supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask {
-        // 返回当前支持的屏幕方向
-        if let orientation = KSOptions.supportedInterfaceOrientations {
-            return orientation
-        }
-
-        // 如果没有设置，根据设备类型返回默认值
-        if AppConstants.Device.isIPad {
-            return .all
-        } else {
-            return .allButUpsideDown  // iPhone 默认支持所有方向（除了倒置）
-        }
+        return KSOptions.supportedInterfaceOrientations
     }
 }

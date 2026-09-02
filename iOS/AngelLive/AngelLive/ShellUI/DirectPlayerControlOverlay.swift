@@ -9,6 +9,7 @@
 import SwiftUI
 import AngelLiveCore
 import AngelLiveDependencies
+@preconcurrency import KSPlayer
 import UIKit
 
 struct DirectPlayerControlOverlay: View {

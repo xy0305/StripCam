@@ -9,6 +9,7 @@
 import SwiftUI
 import AngelLiveCore
 import AngelLiveDependencies
+@preconcurrency import KSPlayer
 
 /// 独立 URL 播放器视图，以 fullScreenCover 形式呈现
 struct DirectURLPlayerView: View {
@@ -316,12 +317,7 @@ struct DirectURLPlayerView: View {
         // 重新设置 URL 触发播放器重载
         if useKSPlayer {
             transition(.loadRequested)
-            if let layer = playerCoordinator.playerLayer {
-                layer.reset()
-                layer.prepareToPlay()
-            } else {
-                playerModel.url = url
-            }
+            playerModel.url = url
         } else {
             // VLC: 停止后重新激活
             vlcPlaybackController.stop()

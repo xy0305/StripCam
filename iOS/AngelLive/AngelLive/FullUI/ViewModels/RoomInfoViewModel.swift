@@ -10,6 +10,7 @@ import SwiftUI
 import Observation
 import AngelLiveCore
 import AngelLiveDependencies
+@preconcurrency import KSPlayer
 
 /// 播放器显示状态
 enum PlayerDisplayState {

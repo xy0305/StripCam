@@ -8,6 +8,7 @@
 import SwiftUI
 import AngelLiveCore
 import AngelLiveDependencies
+@preconcurrency import KSPlayer
 
 struct DetailPlayerView: View {
     @State var viewModel: RoomInfoViewModel
