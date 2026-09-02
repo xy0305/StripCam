@@ -77,10 +77,11 @@ jobs:
           # 安装后一打开就被系统 SIGKILL。
           rm -f "$APP/archived-expanded-entitlements.xcent"
           rm -f "$APP/embedded.mobileprovision"
-          rm -rf Payload
+          rm -rf Payload StripCam-unsigned.ipa
           mkdir -p Payload
           ditto "$APP" "Payload/AngelLive.app"
-          ditto -c -k Payload StripCam-unsigned.ipa
+          zip -qr StripCam-unsigned.ipa Payload
+          python3 -c "import zipfile; z=zipfile.ZipFile('StripCam-unsigned.ipa'); names=z.namelist(); print('entries', len(names)); print('first', names[:8]); assert any(n.startswith('Payload/') for n in names), 'IPA missing Payload/ root'"
           ls -lh StripCam-unsigned.ipa
 
       - name: Upload IPA
