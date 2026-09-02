@@ -72,7 +72,7 @@ final class EdgeHitPassthroughView: UIView {
 //
 
 import MediaPlayer
-import KSPlayer
+@preconcurrency import KSPlayer
 import AngelLiveCore
 internal import AVFoundation
 

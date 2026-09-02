@@ -9,7 +9,7 @@
 //
 
 import SwiftUI
-import KSPlayer
+@preconcurrency import KSPlayer
 internal import AVFoundation
 import AngelLiveCore
 import AngelLiveDependencies

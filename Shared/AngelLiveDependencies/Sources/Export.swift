@@ -13,7 +13,7 @@
 @_exported import VLCKit
 #endif
 #if canImport(KSPlayer)
-@_exported import KSPlayer
+@_exported @preconcurrency import KSPlayer
 #endif
 @_exported import NIO
 @_exported import NIOHTTP1

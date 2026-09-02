@@ -1,7 +1,7 @@
 import AngelLiveCore
 import Combine
 #if canImport(KSPlayer)
-import KSPlayer
+@preconcurrency import KSPlayer
 #endif
 
 /// Binds a KSPlayer layer to AngelLive's process-wide playback ownership registry.

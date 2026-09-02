@@ -9,7 +9,7 @@
 import Foundation
 import AngelLiveCore
 import AngelLiveDependencies
-import KSPlayer
+@preconcurrency import KSPlayer
 import os
 
 final class KSPlayerConsoleBridge: LogHandler, @unchecked Sendable {

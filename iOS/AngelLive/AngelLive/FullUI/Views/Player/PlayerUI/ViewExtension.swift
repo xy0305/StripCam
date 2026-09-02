@@ -8,7 +8,7 @@
 //
 
 import SwiftUI
-import KSPlayer
+@preconcurrency import KSPlayer
 
 @MainActor
 public struct PlayBackCommands: Commands {

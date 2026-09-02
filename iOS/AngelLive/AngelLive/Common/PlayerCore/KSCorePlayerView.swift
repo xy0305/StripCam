@@ -10,7 +10,7 @@
 
 import Foundation
 import SwiftUI
-import KSPlayer
+@preconcurrency import KSPlayer
 import AngelLiveCore
 import AngelLiveDependencies
 

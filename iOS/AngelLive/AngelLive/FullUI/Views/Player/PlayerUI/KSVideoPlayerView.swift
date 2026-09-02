@@ -11,7 +11,7 @@ internal import AVFoundation
 import Combine
 import MediaPlayer
 import SwiftUI
-import KSPlayer
+@preconcurrency import KSPlayer
 import AngelLiveCore
 import AngelLiveDependencies
 
