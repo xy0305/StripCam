@@ -12,6 +12,7 @@ import Foundation
 import SwiftUI
 import KSPlayer
 import AngelLiveCore
+import AngelLiveDependencies
 
 public struct KSCorePlayerView: View {
     @ObservedObject
@@ -34,9 +35,6 @@ public struct KSCorePlayerView: View {
         KSVideoPlayer(coordinator: config, url: url, options: options)
             .onStateChanged { playerLayer, state in
                 if state == .readyToPlay {
-                    if let subtitleDataSource {
-                        config.playerLayer?.subtitleModel.addSubtitle(dataSource: subtitleDataSource)
-                    }
                     if let movieTitle = playerLayer.player.dynamicInfo?.metadata["title"] {
                         title = movieTitle
                     }

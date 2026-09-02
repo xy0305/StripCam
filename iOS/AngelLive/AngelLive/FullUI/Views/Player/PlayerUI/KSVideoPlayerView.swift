@@ -288,7 +288,7 @@ public extension KSVideoPlayerView {
     }
 
     init(playerLayer: KSPlayerLayer) {
-        let coordinator = KSVideoPlayer.Coordinator(playerLayer: playerLayer)
+        let coordinator = KSVideoPlayer.Coordinator()
         self.init(coordinator: coordinator, url: playerLayer.url, options: playerLayer.options)
     }
 }
