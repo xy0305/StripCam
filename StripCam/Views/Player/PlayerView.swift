@@ -38,7 +38,7 @@ struct PlayerView: View {
                     .id(url)
                     .onStateChanged { _, state in
                         isBuffering = (state == .buffering)
-                        if state == .failed {
+                        if state == .error {
                             playbackError = "播放失败，请稍后重试"
                         }
                     }

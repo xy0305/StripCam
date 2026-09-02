@@ -136,10 +136,10 @@
 /* Begin XCRemoteSwiftPackageReference section */
 		000000000000000000000010 /* XCRemoteSwiftPackageReference "KSPlayer" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/TracyPlayer/KSPlayer";
+			repositoryURL = "https://github.com/kingslay/KSPlayer";
 			requirement = {
 				kind = exactVersion;
-				version = 5.0.0;
+				version = 2.3.4;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
