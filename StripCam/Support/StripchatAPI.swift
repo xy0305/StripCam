@@ -166,7 +166,7 @@ final class StripchatAPI {
     // MARK: - 直播流解析（最高画质 + 声音）
 
     /// 解析某主播可用的 HLS 流，按码率从高到低排序。
-    /// 返回结果中包含「自动」主播放列表（视频+音频多路复用，AVPlayer 自动选最高画质）。
+    /// 返回结果中包含「自动」主播放列表（视频+音频多路复用，播放器自动选最高画质）。
     func resolveStreams(modelId: String, presets: [String]?) async -> [StreamInfo] {
         var qualityOrder = ["1080p", "960p", "720p", "480p", "240p", "160p"]
         if let presets, !presets.isEmpty {

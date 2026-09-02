@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		000000000000000000000012 /* KSPlayer in Frameworks */ = {isa = PBXBuildFile; productRef = 000000000000000000000011 /* KSPlayer */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		000000000000000000000002 /* StripCam.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = StripCam.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -23,6 +27,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				000000000000000000000012 /* KSPlayer in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -65,6 +70,7 @@
 			);
 			name = StripCam;
 			packageProductDependencies = (
+				000000000000000000000011 /* KSPlayer */,
 			);
 			productName = StripCam;
 			productReference = 000000000000000000000002 /* StripCam.app */;
@@ -94,6 +100,9 @@
 			);
 			mainGroup = 000000000000000000000004;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				000000000000000000000010 /* XCRemoteSwiftPackageReference "KSPlayer" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 000000000000000000000005 /* Products */;
 			projectDirPath = "";
@@ -123,6 +132,25 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		000000000000000000000010 /* XCRemoteSwiftPackageReference "KSPlayer" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/TracyPlayer/KSPlayer";
+			requirement = {
+				kind = exactVersion;
+				version = 5.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		000000000000000000000011 /* KSPlayer */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 000000000000000000000010 /* XCRemoteSwiftPackageReference "KSPlayer" */;
+			productName = KSPlayer;
+		};
+/* End XCSwiftPackageProductDependency section */
 
 /* Begin XCBuildConfiguration section */
 		00000000000000000000000C /* Debug */ = {

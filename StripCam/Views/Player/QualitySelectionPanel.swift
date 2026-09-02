@@ -105,7 +105,7 @@ struct QualitySelectionPanel: View {
     private func row(_ stream: StreamInfo) -> some View {
         let selected = viewModel.currentStream?.url == stream.url
         return Button {
-            viewModel.play(stream)
+            viewModel.select(stream)
             isShowing = false
         } label: {
             HStack(spacing: 10) {

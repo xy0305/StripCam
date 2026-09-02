@@ -2,44 +2,23 @@
 //  PlayerView.swift
 //  StripCam
 //
-//  全屏竖屏直播播放页（参照 AngelLive 的沉浸式控制层）。
+//  全屏竖屏直播播放页。渲染用 KSPlayer，控制层参照 AngelLive 的沉浸式布局。
 //
 
 import SwiftUI
-import AVFoundation
-
-/// 把 AVPlayerLayer 包装成 UIView（layerClass = AVPlayerLayer）
-private final class PlayerLayerView: UIView {
-    override class var layerClass: AnyClass { AVPlayerLayer.self }
-    var player: AVPlayer? {
-        get { (layer as? AVPlayerLayer)?.player }
-        set { (layer as? AVPlayerLayer)?.player = newValue }
-    }
-}
-
-private struct PlayerLayerRepresentable: UIViewRepresentable {
-    let player: AVPlayer
-
-    func makeUIView(context: Context) -> PlayerLayerView {
-        let view = PlayerLayerView()
-        view.player = player
-        (view.layer as? AVPlayerLayer)?.videoGravity = .resizeAspect
-        return view
-    }
-
-    func updateUIView(_ uiView: PlayerLayerView, context: Context) {
-        uiView.player = player
-    }
-}
+import KSPlayer
 
 struct PlayerView: View {
     @StateObject private var viewModel: PlayerViewModel
+    @StateObject private var coordinator = KSVideoPlayer.Coordinator()
     @EnvironmentObject private var favorites: FavoritesStore
     @Environment(\.dismiss) private var dismiss
 
     @State private var controlsVisible = true
     @State private var showQualityPanel = false
     @State private var showStreamerInfo = false
+    @State private var isBuffering = true
+    @State private var playbackError: String?
     @State private var hideTask: Task<Void, Never>?
 
     private var isFavorited: Bool {
@@ -54,28 +33,45 @@ struct PlayerView: View {
         ZStack {
             Color.black.ignoresSafeArea()
 
-            PlayerLayerRepresentable(player: viewModel.player)
-                .ignoresSafeArea()
-                .onTapGesture { toggleControls() }
-
-            // 缓冲指示器
-            if viewModel.isBuffering && viewModel.errorMessage == nil {
+            if let url = viewModel.currentStream?.url {
+                KSVideoPlayer(coordinator: coordinator, url: url, options: KSOptions())
+                    .id(url)
+                    .onStateChanged { _, state in
+                        isBuffering = (state == .buffering)
+                        if state == .failed {
+                            playbackError = "播放失败，请稍后重试"
+                        }
+                    }
+                    .ignoresSafeArea()
+                    .onAppear {
+                        // 隐藏 KSPlayer 自带控制层，使用自定义沉浸式控制层
+                        coordinator.isMaskShow = false
+                    }
+            } else if viewModel.errorMessage == nil {
                 ProgressView()
                     .controlSize(.large)
                     .tint(.white)
             }
 
-            // 错误
-            if let error = viewModel.errorMessage {
-                errorOverlay(error)
+            // 透明点击层（视频之上、控制层之下）
+            Color.black.opacity(0.001)
+                .ignoresSafeArea()
+                .onTapGesture { toggleControls() }
+
+            if isBuffering && playbackError == nil && viewModel.errorMessage == nil {
+                ProgressView()
+                    .controlSize(.large)
+                    .tint(.white)
             }
 
-            // 控制层
+            if let err = playbackError ?? viewModel.errorMessage {
+                errorOverlay(err)
+            }
+
             controlsOverlay
                 .opacity(controlsVisible ? 1 : 0)
                 .animation(.easeInOut(duration: 0.25), value: controlsVisible)
 
-            // 清晰度面板
             if showQualityPanel {
                 Color.black.opacity(0.001)
                     .ignoresSafeArea()
@@ -93,7 +89,7 @@ struct PlayerView: View {
             scheduleHide()
         }
         .onDisappear {
-            viewModel.player.pause()
+            coordinator.playerLayer?.pause()
             hideTask?.cancel()
         }
     }
@@ -116,7 +112,6 @@ struct PlayerView: View {
 
     private var topBar: some View {
         HStack(spacing: 10) {
-            // 返回
             Button {
                 dismiss()
             } label: {
@@ -128,7 +123,6 @@ struct PlayerView: View {
             }
             .allowsHitTesting(controlsVisible)
 
-            // 主播信息胶囊（点击弹详情）
             Button {
                 showStreamerInfo = true
             } label: {
@@ -159,7 +153,6 @@ struct PlayerView: View {
             .buttonStyle(.plain)
             .allowsHitTesting(controlsVisible)
 
-            // 收藏
             Button {
                 favorites.toggle(viewModel.model)
             } label: {
