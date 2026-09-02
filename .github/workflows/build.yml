@@ -56,19 +56,31 @@ jobs:
           xcodebuild archive \
             -workspace AngelLive.xcworkspace \
             -scheme AngelLive \
+            -configuration Release \
             -destination 'generic/platform=iOS' \
             -archivePath build/StripCam.xcarchive \
+            SKIP_INSTALL=NO \
             CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_ENTITLEMENTS=""
 
       - name: Package IPA
         run: |
           APP="build/StripCam.xcarchive/Products/Applications/AngelLive.app"
-          ls -la "$APP" | head -5
-          rm -rf Payload && mkdir -p Payload
-          cp -R "$APP" Payload/
-          zip -qr StripCam-unsigned.ipa Payload
+          test -d "$APP"
+          echo "=== App payload ==="
+          ls -la "$APP" | head -30
+          echo "=== Frameworks ==="
+          ls -la "$APP/Frameworks" 2>/dev/null || echo "WARNING: no Frameworks directory"
+          # 侧载工具会读取这个文件，把原版 iCloud/推送/组播 entitlements 签进包里，
+          # 安装后一打开就被系统 SIGKILL。
+          rm -f "$APP/archived-expanded-entitlements.xcent"
+          rm -f "$APP/embedded.mobileprovision"
+          rm -rf Payload
+          mkdir -p Payload
+          ditto "$APP" "Payload/AngelLive.app"
+          ditto -c -k Payload StripCam-unsigned.ipa
           ls -lh StripCam-unsigned.ipa
 
       - name: Upload IPA

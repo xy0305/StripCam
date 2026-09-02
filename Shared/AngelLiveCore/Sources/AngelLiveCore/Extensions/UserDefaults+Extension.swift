@@ -8,10 +8,13 @@
 import Foundation
 
 public extension UserDefaults {
-    nonisolated(unsafe) static let shared = UserDefaults(suiteName: "group.dev.idog.angellivetvos")!
+    /// StripCam 是单 App 侧载分发，没有配置 App Group。
+    /// 原版 AngelLive 用 `group.dev.idog.angellivetvos` 和 tvOS 共享设置；
+    /// 在没有对应 entitlement 时 `UserDefaults(suiteName:)!` 会在启动瞬间崩溃。
+    nonisolated(unsafe) static let shared = UserDefaults.standard
 
     func synchronized() -> UserDefaults {
-        return UserDefaults(suiteName: "group.dev.idog.angellivetvos")!
+        return .standard
     }
 
     func set(_ value: (some Sendable)?, forKey key: String, synchronize: Bool) {
