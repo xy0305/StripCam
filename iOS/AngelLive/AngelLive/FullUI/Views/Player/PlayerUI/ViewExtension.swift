@@ -60,7 +60,6 @@ public struct MenuView<SelectionValue, Content, Label>: View where SelectionValu
             .pickerStyle(.inline)
         } label: {
             label()
-                .menuLabelStyle()
         }
         .menuIndicator(.hidden)
         .menuStyle(.borderlessButton)
@@ -248,7 +247,7 @@ extension View {
 
     func allowedDynamicRange() -> some View {
         if #available(iOS 17.0, macOS 14.0, tvOS 17.0, *) {
-            return self.allowedDynamicRange(KSOptions.subtitleDynamicRange)
+            return self
         } else {
             return self
         }

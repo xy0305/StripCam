@@ -718,11 +718,12 @@ struct PlayerContentView: View {
             playerLayer.player.contentMode = targetContentMode
         }
 
-        let playerView = playerLayer.player.view
-        playerView.clipsToBounds = isVerticalLive
-        playerView.layer.masksToBounds = isVerticalLive
-        playerView.setNeedsLayout()
-        playerView.layoutIfNeeded()
+        if let playerView = playerLayer.player.view {
+            playerView.clipsToBounds = isVerticalLive
+            playerView.layer.masksToBounds = isVerticalLive
+            playerView.setNeedsLayout()
+            playerView.layoutIfNeeded()
+        }
     }
 
     /// 确保播放器模型只创建一次并与全局 coordinator / options 对齐
@@ -759,12 +760,7 @@ struct PlayerContentView: View {
         let info = player.dynamicInfo
         let head = player.currentPlaybackTime
         let buffered = max(0, player.playableTime - head)
-        var surface = "view=\(type(of: player.view)) windowAttached=\(player.view.window != nil) hidden=\(player.view.isHidden)"
-        if let metalView = player.view as? MetalPlayView,
-           let metalLayer = metalView.drawable as? CAMetalLayer {
-            surface += " metalDrawableSize=\(metalLayer.drawableSize) " +
-                "metalBounds=\(metalLayer.bounds) metalSuperlayerAttached=\(metalLayer.superlayer != nil)"
-        }
+        var surface = "view=\(type(of: player.view as Any)) windowAttached=\(player.view?.window != nil) hidden=\(player.view?.isHidden ?? false)"
         Logger.info(
             "[PlayerFlow] lifecycle event=\(event) " +
                 "engineState=\(viewModel.engineState) playerState=\(player.playbackState) " +
@@ -924,8 +920,8 @@ private struct StreamSpeedText: View {
     @ObservedObject var info: DynamicInfo
 
     var body: some View {
-        if info.networkSpeed > 0 {
-            let (value, unit) = SpeedFormatter.split(bytesPerSecond: Int64(info.networkSpeed))
+        if info.videoBitrate > 0 {
+            let (value, unit) = SpeedFormatter.split(bytesPerSecond: Int64(info.videoBitrate))
             HStack(alignment: .firstTextBaseline, spacing: 5) {
                 Text(value)
                     .font(.system(size: 26, weight: .light, design: .rounded))

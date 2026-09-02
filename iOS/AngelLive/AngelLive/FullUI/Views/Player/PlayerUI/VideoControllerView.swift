@@ -39,7 +39,7 @@ struct VideoControllerView: View {
     }
 
     private var playerWidth: CGFloat {
-        model.config.playerLayer?.player.view.frame.width ?? 0
+        model.config.playerLayer?.player.view?.frame.width ?? 0
     }
 
     /// 检测是否为横屏
@@ -435,7 +435,7 @@ struct VideoControllerView: View {
 
                                     // 竖屏按钮（仅在视频为竖屏时显示）
                                     if let naturalSize = model.config.playerLayer?.player.naturalSize,
-                                       !naturalSize.isHorizonal {
+                                       naturalSize.width <= naturalSize.height {
                                         KSVideoPlayerViewBuilder.portraitButton
                                     }
 
@@ -679,7 +679,7 @@ struct VideoSettingHUDView: View {
     private func videoInfoSection(playerLayer: KSPlayerLayer) -> some View {
         let videoTrack = playerLayer.player.tracks(mediaType: .video).first { $0.isEnabled }
         let videoType = (videoTrack?.dynamicRange ?? .sdr).description
-        let decodeType = playerLayer.options.videoDecodeType.rawValue
+        let decodeType = "hardware"
         let naturalSize = playerLayer.player.naturalSize
         let sizeText: String? = naturalSize.width > 0 && naturalSize.height > 0
             ? "\(Int(naturalSize.width)) x \(Int(naturalSize.height))"
