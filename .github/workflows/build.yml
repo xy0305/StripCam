@@ -27,11 +27,35 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGN_IDENTITY=""
 
-      - name: Upload build log
-        if: always()
+  package:
+    name: Package unsigned IPA
+    runs-on: macos-15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Archive (unsigned, device)
+        run: |
+          xcodebuild archive \
+            -project StripCam.xcodeproj \
+            -scheme StripCam \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/StripCam.xcarchive \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO
+
+      - name: Package IPA
+        run: |
+          APP="build/StripCam.xcarchive/Products/Applications/StripCam.app"
+          ls -la "$APP"
+          rm -rf Payload && mkdir -p Payload
+          cp -R "$APP" Payload/
+          zip -qr StripCam-unsigned.ipa Payload
+          ls -lh StripCam-unsigned.ipa
+
+      - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: xcodebuild-log
-          path: |
-            build/Logs/Build/*.xcactivitylog
-          if-no-files-found: ignore
+          name: StripCam-unsigned
+          path: StripCam-unsigned.ipa
