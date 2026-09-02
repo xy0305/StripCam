@@ -75,6 +75,33 @@
         return JSON.parse(res.bodyText || "{}");
     }
 
+    // 带登录 Cookie 的请求（authMode=platform_cookie 由宿主注入平台凭证）
+    async function httpJSONAuth(url) {
+        var res = await Host.http.request({ url: url, method: "GET", headers: headers(), authMode: "platform_cookie" });
+        if (res.status < 200 || res.status >= 300) {
+            throw Host.makeError("NETWORK", "HTTP " + res.status + " " + url, {});
+        }
+        return JSON.parse(res.bodyText || "{}");
+    }
+
+    // 我的最爱：多接口尝试（兼容谷歌登录 Cookie）
+    async function fetchFavorites(page) {
+        var offset = (Number(page || 1) - 1) * PAGE_SIZE;
+        var urls = [
+            API_HOST + "/api/front/models/favorites?sortBy=lastAdded&limit=" + PAGE_SIZE + "&offset=" + offset,
+            API_HOST + "/api/front/models/favorites?sortBy=username&limit=" + PAGE_SIZE + "&offset=" + offset,
+            API_HOST + "/api/front/models/favorites/online?sortBy=lastAdded&limit=" + PAGE_SIZE + "&offset=" + offset
+        ];
+        for (var i = 0; i < urls.length; i++) {
+            try {
+                var data = await httpJSONAuth(urls[i]);
+                var list = data.models || data.favorites || data.items || [];
+                if (list && list.length) return list;
+            } catch (e) {}
+        }
+        return [];
+    }
+
     function fullImage(p) {
         if (!p) return "";
         if (String(p).indexOf("http") === 0) return String(p);
@@ -127,6 +154,7 @@
     function categories() {
         function c(id, title) { return { id: id, parentId: "stripchat", title: title, icon: "" }; }
         return [
+            { id: "mine", title: "我的", icon: "", subList: [ c("favorites", "❤️ 我的最爱") ]},
             { id: "recommended", title: "推荐", icon: "", subList: [
                 c("recommended", "✨ 最新精选"), c("girls_hot", "🔥 超赞免费直播"),
                 c("girls_new", "🆕 最新女主播"), c("girls_hd", "📺 高清 HD 直播")
@@ -201,6 +229,9 @@
             payload = payload || {};
             var id = payload.id || "recommended";
             var page = Number(payload.page || 1);
+            if (id === "favorites") {
+                return (await fetchFavorites(page)).map(toRoom);
+            }
             var c = CATS[id] || CATS["recommended"];
             var models = await fetchModels(c.primary, c.tag, page, c.sort);
             return models.map(toRoom);

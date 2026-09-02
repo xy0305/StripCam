@@ -5,5 +5,18 @@
   "displayName": "Stripchat",
   "platformDescription": "Stripchat 第三方直播（HLS 最高画质 + 声音）",
   "liveTypes": ["stripchat"],
-  "entry": "stripchat.js"
+  "entry": "stripchat.js",
+  "auth": {
+    "required": false,
+    "credentialKinds": ["cookie"],
+    "supportsStatusCheck": false,
+    "supportsValidation": false
+  },
+  "loginFlow": {
+    "kind": "webview",
+    "loginURL": "https://zh.stripchat.com/login",
+    "cookieDomains": [".stripchat.com", "stripchat.com"],
+    "authSignalCookies": ["AMP_"],
+    "uidCookieNames": null
+  }
 }

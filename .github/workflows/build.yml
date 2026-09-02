@@ -14,8 +14,6 @@ jobs:
 
       - name: Select latest Xcode
         run: |
-          echo "=== installed Xcode ==="
-          ls -1 /Applications/ | grep -i xcode || true
           LATEST=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
           if [ -n "$LATEST" ]; then
             echo "Selecting $LATEST"
@@ -36,7 +34,45 @@ jobs:
       - name: Verify plugin bundled
         run: |
           APP="build/Build/Products/Debug-iphonesimulator/AngelLive.app"
-          echo "=== Plugins folder ==="
           find "$APP" -iname '*stripchat*' -o -iname 'lp_plugin_*' 2>/dev/null | head -20
-          echo "=== app root (first 30) ==="
-          ls -1 "$APP" | head -30
+
+  package:
+    name: Package unsigned IPA
+    runs-on: macos-15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select latest Xcode
+        run: |
+          LATEST=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$LATEST" ]; then
+            sudo xcode-select -s "$LATEST"
+          fi
+          xcodebuild -version
+
+      - name: Archive (unsigned, device)
+        run: |
+          xcodebuild archive \
+            -workspace AngelLive.xcworkspace \
+            -scheme AngelLive \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/StripCam.xcarchive \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO
+
+      - name: Package IPA
+        run: |
+          APP="build/StripCam.xcarchive/Products/Applications/AngelLive.app"
+          ls -la "$APP" | head -5
+          rm -rf Payload && mkdir -p Payload
+          cp -R "$APP" Payload/
+          zip -qr StripCam-unsigned.ipa Payload
+          ls -lh StripCam-unsigned.ipa
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: StripCam-unsigned
+          path: StripCam-unsigned.ipa
