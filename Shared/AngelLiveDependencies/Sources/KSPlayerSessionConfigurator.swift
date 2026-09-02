@@ -1,6 +1,6 @@
 import AngelLiveCore
 #if canImport(KSPlayer)
-import KSPlayer
+@preconcurrency import KSPlayer
 #endif
 
 public enum KSPlayerLiveReconnectPolicy: Sendable {
