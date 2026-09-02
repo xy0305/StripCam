@@ -35,13 +35,13 @@ struct PlayerView: View {
 
             if let url = viewModel.currentStream?.url {
                 KSVideoPlayer(coordinator: coordinator, url: url, options: KSOptions())
-                    .id(url)
                     .onStateChanged { _, state in
                         isBuffering = (state == .buffering)
                         if state == .error {
                             playbackError = "播放失败，请稍后重试"
                         }
                     }
+                    .id(url)
                     .ignoresSafeArea()
                     .onAppear {
                         // 隐藏 KSPlayer 自带控制层，使用自定义沉浸式控制层
