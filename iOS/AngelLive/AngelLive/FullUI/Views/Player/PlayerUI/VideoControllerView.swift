@@ -697,18 +697,16 @@ struct VideoSettingHUDView: View {
     @ViewBuilder
     private func performanceInfoSection(playerLayer: KSPlayerLayer) -> some View {
         let dynamicInfo = playerLayer.player.dynamicInfo
-        let fpsText = String(format: "%.1f fps", dynamicInfo.displayFPS)
-        let droppedFrames = dynamicInfo.droppedVideoFrameCount + dynamicInfo.droppedVideoPacketCount
-        let syncText = String(format: "%.3f s", dynamicInfo.audioVideoSyncDiff)
-        let networkSpeed = Self.formatBytes(Int64(dynamicInfo.networkSpeed)) + "/s"
-        let videoBitrate = Self.formatBytes(Int64(dynamicInfo.videoBitrate)) + "ps"
-        let audioBitrate = Self.formatBytes(Int64(dynamicInfo.audioBitrate)) + "ps"
+        let fpsText = String(format: "%.1f fps", dynamicInfo?.displayFPS ?? 0)
+        let droppedFrames = (dynamicInfo?.droppedVideoFrameCount ?? 0) + (dynamicInfo?.droppedVideoPacketCount ?? 0)
+        let syncText = String(format: "%.3f s", dynamicInfo?.audioVideoSyncDiff ?? 0)
+        let videoBitrate = Self.formatBytes(Int64(dynamicInfo?.videoBitrate ?? 0)) + "ps"
+        let audioBitrate = Self.formatBytes(Int64(dynamicInfo?.audioBitrate ?? 0)) + "ps"
 
         sectionCard(title: "性能信息", systemImage: "speedometer") {
             InfoRow(title: "显示帧率", value: fpsText)
             InfoRow(title: "丢帧数", value: "\(droppedFrames)")
             InfoRow(title: "音视频同步", value: syncText)
-            InfoRow(title: "网络速度", value: networkSpeed)
             InfoRow(title: "视频码率", value: videoBitrate)
             InfoRow(title: "音频码率", value: audioBitrate)
         }
@@ -847,10 +845,6 @@ private extension DynamicInfo {
         log += "Display FPS: \(displayFPS)\n"
         log += "Dropped Frames: \(droppedVideoFrameCount)\n"
         log += "Audio Video sync: \(audioVideoSyncDiff)\n"
-        log += "Network Speed: \(formatBytes(Int64(networkSpeed)))B/s\n"
-        #if DEBUG
-        log += "Average Audio Video sync: \(averageAudioVideoSyncDiff)\n"
-        #endif
         return log
     }
 

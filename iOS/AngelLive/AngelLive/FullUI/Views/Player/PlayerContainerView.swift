@@ -159,14 +159,7 @@ struct PlayerContentView: View {
             if useKSPlayer {
                 wasPlayingBeforeBackground = playerCoordinator.playerLayer?.player.isPlaying ?? playerCoordinator.state.isPlaying
                 logForegroundLifecycleSnapshot(event: "willResignActive")
-                // 进入后台时自动开启画中画（每次读取最新设置值）
-                if PlayerSettingModel().enableAutoPiPOnBackground,
-                   ownsGlobalCapability(.pictureInPicture) {
-                    if let playerLayer = playerCoordinator.playerLayer as? KSComplexPlayerLayer,
-                       !playerLayer.isPictureInPictureActive {
-                        playerLayer.pipStart()
-                    }
-                }
+                // PiP 已禁用（kingslay/KSPlayer 2.3.4 无 KSComplexPlayerLayer）
             } else {
                 Logger.debug(
                     "[PlayerFlow] willResignActive kernel=\(viewModel.selectedPlayerKernel.rawValue), useKS=false, url=\(compactURL(viewModel.currentPlayURL))",
@@ -186,11 +179,7 @@ struct PlayerContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             if useKSPlayer {
                 logForegroundLifecycleSnapshot(event: "didBecomeActive")
-                // 返回前台时自动关闭画中画
-                if let playerLayer = playerCoordinator.playerLayer as? KSComplexPlayerLayer,
-                   playerLayer.isPictureInPictureActive {
-                    playerLayer.pipStop(restoreUserInterface: true)
-                }
+                // PiP 已禁用（kingslay/KSPlayer 2.3.4 无 KSComplexPlayerLayer）
                 #if canImport(KSPlayer)
                 // Bug2 现场抓取:回前台后做一段有界采样,自动判 A/B/C(画中画恢复另算,这里仍采更稳妥)。
                 startForegroundDiagnosticWatch()
@@ -633,7 +622,7 @@ struct PlayerContentView: View {
                 isPlaying: viewModel.isPlaying || playerCoordinator.state.isPlaying,
                 isBuffering: (viewModel.engineState == .buffering && !viewModel.isPlaying) || playerCoordinator.playerLayer?.player.playbackState == .seeking,
                 isInitialLoading: isInitialStreamLoading,
-                supportsPictureInPicture: playerCoordinator.playerLayer is KSComplexPlayerLayer,
+                supportsPictureInPicture: false,
                 togglePlayPause: {
                     guard activatePlaybackSurface() else { return }
                     if viewModel.isPlaying || playerCoordinator.state.isPlaying {
@@ -647,14 +636,7 @@ struct PlayerContentView: View {
                     viewModel.refreshPlayback()
                 },
                 togglePictureInPicture: {
-                    guard activatePlaybackSurface() else { return }
-                    if let playerLayer = playerCoordinator.playerLayer as? KSComplexPlayerLayer {
-                        if playerLayer.isPictureInPictureActive {
-                            playerLayer.pipStop(restoreUserInterface: true)
-                        } else {
-                            playerLayer.pipStart()
-                        }
-                    }
+                    // PiP 已禁用
                 },
                 applyScaleMode: { mode in
                     guard let player = playerCoordinator.playerLayer?.player else { return }
@@ -788,7 +770,7 @@ struct PlayerContentView: View {
                 "engineState=\(viewModel.engineState) playerState=\(player.playbackState) " +
                 "isPlaying=\(player.isPlaying) intendedPlaying=\(String(describing: wasPlayingBeforeBackground)) " +
                 "playhead=\(String(format: "%.2f", head)) buffered=\(String(format: "%.2f", buffered))s " +
-                "bytes=\(info.bytesRead) net=\(Int64(info.networkSpeed))B/s fps=\(String(format: "%.1f", Double(info.displayFPS))) " +
+                "bytes=\(info?.bytesRead ?? 0) fps=\(String(format: "%.1f", Double(info?.displayFPS ?? 0))) " +
                 "surface=\(surface)",
             category: .player
         )
@@ -814,14 +796,14 @@ struct PlayerContentView: View {
         let isHLS = String(describing: type(of: player)).contains("KSAVPlayer")
         let bgDuration = lastResignActiveAt.map { Date().timeIntervalSince($0) } ?? -1
         let basePlayhead = player.currentPlaybackTime
-        let baseBytes = player.dynamicInfo.bytesRead
+        let baseBytes = player.dynamicInfo?.bytesRead ?? 0
         let baseBuffered = max(0, player.playableTime - basePlayhead)
         Logger.info(
             "[PlayerFlow] FG-watch start bg=\(String(format: "%.0f", bgDuration))s " +
             "kernel=\(isHLS ? "KSAV/HLS" : "FFmpeg") state=\(viewModel.engineState) " +
             "playing=\(player.isPlaying) playhead=\(String(format: "%.2f", basePlayhead)) " +
             "buffered=\(String(format: "%.2f", baseBuffered))s " +
-            "fps=\(String(format: "%.1f", Double(player.dynamicInfo.displayFPS)))",
+            "fps=\(String(format: "%.1f", Double(player.dynamicInfo?.displayFPS ?? 0)))",
             category: .player
         )
 
@@ -831,7 +813,7 @@ struct PlayerContentView: View {
             var lastPlayhead = basePlayhead
             var lastBytes = baseBytes
             // 末样信号(取最后一次采样,避开回前台瞬间 fps 抖动);verdict 全据此判。
-            var lastFps = Double(player.dynamicInfo.displayFPS)
+            var lastFps = Double(player.dynamicInfo?.displayFPS ?? 0)
             var lastBuffered = baseBuffered
             var lastIsPlaying = player.isPlaying
             for gap in gaps {
@@ -841,15 +823,15 @@ struct PlayerContentView: View {
                 elapsed += Int(gap)
                 let info = p.dynamicInfo
                 let head = p.currentPlaybackTime
-                let bytes = info.bytesRead
-                let fps = Double(info.displayFPS)
+                let bytes = info?.bytesRead ?? 0
+                let fps = Double(info?.displayFPS ?? 0)
                 let buffered = max(0, p.playableTime - head)
                 Logger.info(
                     "[PlayerFlow] FG-watch +\(elapsed)s state=\(viewModel.engineState) " +
                     "playing=\(p.isPlaying) Δplayhead=\(String(format: "%+.2f", head - lastPlayhead))s " +
-                    "Δbytes=\(bytes - lastBytes) net=\(Int64(info.networkSpeed))B/s " +
+                    "Δbytes=\(bytes - lastBytes) " +
                     "fps=\(String(format: "%.1f", fps)) " +
-                    "drop=\(info.droppedVideoFrameCount + info.droppedVideoPacketCount) " +
+                    "drop=\((info?.droppedVideoFrameCount ?? 0) + (info?.droppedVideoPacketCount ?? 0)) " +
                     "buffered=\(String(format: "%.2f", buffered))s",
                     category: .player
                 )

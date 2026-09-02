@@ -199,7 +199,6 @@ private struct PlayerSettingsSheet: View {
                                 Toggle("后台播放", isOn: $playerSettingModel.enableBackgroundAudio)
                                     .tint(AppConstants.Colors.accent)
                                     .onChange(of: playerSettingModel.enableBackgroundAudio) { _, newValue in
-                                        KSOptions.canBackgroundPlay = newValue
                                         // 关后台播放时，自动 PiP 必然失效，一起关掉
                                         if !newValue && playerSettingModel.enableAutoPiPOnBackground {
                                             playerSettingModel.enableAutoPiPOnBackground = false
@@ -219,7 +218,6 @@ private struct PlayerSettingsSheet: View {
                                         .onChange(of: playerSettingModel.enableAutoPiPOnBackground) { _, newValue in
                                             if newValue && !playerSettingModel.enableBackgroundAudio {
                                                 playerSettingModel.enableBackgroundAudio = true
-                                                KSOptions.canBackgroundPlay = true
                                             }
                                             onAutoPiPChanged(newValue)
                                         }
@@ -244,7 +242,6 @@ private struct PlayerSettingsSheet: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        KSOptions.canBackgroundPlay = playerSettingModel.enableBackgroundAudio
                         dismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
@@ -255,7 +252,6 @@ private struct PlayerSettingsSheet: View {
             }
         }
         .onAppear {
-            KSOptions.canBackgroundPlay = playerSettingModel.enableBackgroundAudio
             let resolvedKernel = PlayerKernelSupport.resolvedKernel(for: playerSettingModel.playerKernel)
             if resolvedKernel != playerSettingModel.playerKernel {
                 playerSettingModel.playerKernel = resolvedKernel

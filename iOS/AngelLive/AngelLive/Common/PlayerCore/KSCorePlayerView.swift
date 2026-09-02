@@ -37,7 +37,7 @@ public struct KSCorePlayerView: View {
                     if let subtitleDataSource {
                         config.playerLayer?.subtitleModel.addSubtitle(dataSource: subtitleDataSource)
                     }
-                    if let movieTitle = playerLayer.player.dynamicInfo.metadata["title"] {
+                    if let movieTitle = playerLayer.player.dynamicInfo?.metadata["title"] {
                         title = movieTitle
                     }
                 }

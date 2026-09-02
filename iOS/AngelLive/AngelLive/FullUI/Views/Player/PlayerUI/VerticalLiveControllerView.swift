@@ -283,7 +283,7 @@ struct VerticalLiveControllerView: View {
     }
 
     private var supportsPictureInPicture: Bool {
-        model.config.playerLayer is KSComplexPlayerLayer
+        false
     }
 
     private func refreshPlayback() {
@@ -292,16 +292,7 @@ struct VerticalLiveControllerView: View {
     }
 
     private func togglePictureInPicture() {
-        guard activatePlaybackSurface(),
-              let playerLayer = model.config.playerLayer as? KSComplexPlayerLayer else {
-            return
-        }
-
-        if playerLayer.isPictureInPictureActive {
-            playerLayer.pipStop(restoreUserInterface: true)
-        } else {
-            playerLayer.pipStart()
-        }
+        // PiP 已禁用：上游 kingslay/KSPlayer 2.3.4 无 KSComplexPlayerLayer。
     }
 
     private func activatePlaybackSurface() -> Bool {

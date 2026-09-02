@@ -101,7 +101,7 @@ public extension PlaybackRecoveryHost {
         if player is KSAVPlayer { return nil }
         let playhead = player.currentPlaybackTime
         return PlaybackSample(
-            bytesRead: player.dynamicInfo.bytesRead,
+            bytesRead: player.dynamicInfo?.bytesRead ?? 0,
             playhead: playhead,
             buffered: max(0, player.playableTime - playhead),
             isPlaying: player.isPlaying

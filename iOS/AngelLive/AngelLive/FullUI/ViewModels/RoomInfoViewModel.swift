@@ -156,7 +156,6 @@ final class RoomInfoViewModel {
         // 关闭双路自动重开，避免在弱网/失败时频繁重连导致 stop 循环
         KSOptions.isSecondOpen = false
         // 根据用户设置启用后台播放
-        KSOptions.canBackgroundPlay = PlayerSettingModel().enableBackgroundAudio
         let option = PlayerOptions()
         option.userAgent = "libmpv"
         option.registerRemoteControll = false
@@ -364,7 +363,10 @@ final class RoomInfoViewModel {
             // 在 applyPlayURL 之前先决定播放内核，避免首次起播沿用 PlayerOptions 默认 [KSAVPlayer]
             // 导致 FLV 流被 AVPlayer 收到后报 AVError -11850(serverIncorrectlyConfigured) 卡住。
             let resolved = resolvePlayerTypes(quality: currentQuality, cdnIndex: cdnIndex, urlIndex: urlIndex)
-            playerOption.playerTypes = resolved.playerTypes
+            if let first = resolved.playerTypes.first {
+                KSOptions.firstPlayerType = first
+                KSOptions.secondPlayerType = resolved.playerTypes.count > 1 ? resolved.playerTypes[1] : nil
+            }
             isHLSStream = resolved.isHLS
 
             applyPlayURL(
@@ -395,7 +397,10 @@ final class RoomInfoViewModel {
         self.currentQualityIndex = effectiveSelection?.qualityIndex ?? urlIndex
 
         // 1. 决定播放器类型
-        playerOption.playerTypes = resolved.playerTypes
+        if let first = resolved.playerTypes.first {
+            KSOptions.firstPlayerType = first
+            KSOptions.secondPlayerType = resolved.playerTypes.count > 1 ? resolved.playerTypes[1] : nil
+        }
         isHLSStream = resolved.isHLS
 
         // 如果已经通过 HLS 查找确定了播放地址，直接返回
@@ -475,7 +480,7 @@ final class RoomInfoViewModel {
         source: String,
         debugContext: RoomPlaybackDebugContext?
     ) {
-        let playerNames = playerOption.playerTypes.map { playerTypeName(for: $0) }
+        let playerNames = ([KSOptions.firstPlayerType] + (KSOptions.secondPlayerType.map { [$0] } ?? [])).map { playerTypeName(for: $0) }
         let selectedPlayers = playerNames.isEmpty ? "未设置" : playerNames.joined(separator: ",")
         let fallbackSelection = RoomPlaybackResolver.selection(
             in: currentRoomPlayArgs,
@@ -595,7 +600,10 @@ final class RoomInfoViewModel {
 
         currentPlayQualityString = resolved.overrideTitle ?? displayTitle
         currentPlayQualityQn = quality.qn
-        playerOption.playerTypes = resolved.playerTypes
+        if let first = resolved.playerTypes.first {
+            KSOptions.firstPlayerType = first
+            KSOptions.secondPlayerType = resolved.playerTypes.count > 1 ? resolved.playerTypes[1] : nil
+        }
         isHLSStream = resolved.isHLS
 
         if let resolvedURL = resolved.overrideURL {
@@ -780,30 +788,9 @@ final class RoomInfoViewModel {
     /// 要等第二次进后台才走即时 start 分支 →「推出进来推出进来才生效」。
     ///
     /// 开:提前把控制器建好(与 readyToPlay 完全一致的 configPIP + delegate),首次进后台即即时 start。
-    /// 关:若 PiP 未在进行,拆掉控制器,避免残留武装态(防「关不掉」)。幂等。
+    /// PiP 已禁用：上游 kingslay/KSPlayer 2.3.4 无 KSComplexPlayerLayer。
     @MainActor
-    func setAutoPiPArmed(_ armed: Bool) {
-        #if canImport(KSPlayer)
-        guard let layer = watchedPlayerLayer as? KSComplexPlayerLayer else {
-            Logger.debug("[PlayerFlow] PiP arm skip: no KSComplexPlayerLayer (armed=\(armed))", category: .player)
-            return
-        }
-        if armed {
-            guard let playbackSurfaceID,
-                  PlaybackSessionRegistry.shared.isOwner(playbackSurfaceID, of: .pictureInPicture)
-            else { return }
-            guard layer.player.pipController == nil else { return }   // 已就绪,幂等
-            layer.player.configPIP()
-            // delegate 便捷属性跨模块不可见,用公开的 setValue(等价 KSPlayer 内部 `delegate = self`)。
-            layer.player.pipController?.setValue(layer, forKey: "delegate")
-            Logger.debug("[PlayerFlow] PiP controller armed (toggle on)", category: .player)
-        } else {
-            guard !layer.isPictureInPictureActive else { return }     // 正在 PiP 不拆,交给 enterForeground
-            layer.player.pipController = nil
-            Logger.debug("[PlayerFlow] PiP controller torn down (toggle off)", category: .player)
-        }
-        #endif
-    }
+    func setAutoPiPArmed(_ armed: Bool) {}
 
     /// 切换弹幕显示状态
     @MainActor

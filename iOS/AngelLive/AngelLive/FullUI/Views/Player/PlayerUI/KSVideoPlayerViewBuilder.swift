@@ -193,13 +193,7 @@ public enum KSVideoPlayerViewBuilder {
     @ViewBuilder
     static func pipButton(config: KSVideoPlayer.Coordinator) -> some View {
         Button {
-            if let playerLayer = config.playerLayer as? KSComplexPlayerLayer {
-                if playerLayer.isPictureInPictureActive {
-                    playerLayer.pipStop(restoreUserInterface: true)
-                } else {
-                    playerLayer.pipStart()
-                }
-            }
+            // PiP 已禁用：上游 kingslay/KSPlayer 2.3.4 无 KSComplexPlayerLayer。
         } label: {
             Image(systemName: "pip")
                 .frame(width: 30, height: 30)

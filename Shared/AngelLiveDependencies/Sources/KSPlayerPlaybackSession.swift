@@ -61,13 +61,6 @@ public final class KSPlayerPlaybackSession: ObservableObject, PlaybackSessionPar
     public func attach(playerLayer: KSPlayerLayer?) {
         guard self.playerLayer !== playerLayer else { return }
 
-        #if canImport(KSPlayer)
-        if ownedGlobalCapabilities.contains(.remoteCommands),
-           let oldLayer = self.playerLayer as? KSComplexPlayerLayer {
-            oldLayer.removeRemoteControllEvent()
-        }
-        #endif
-
         self.playerLayer = playerLayer
         applyRemoteCommandOwnership()
     }
@@ -96,13 +89,6 @@ public final class KSPlayerPlaybackSession: ObservableObject, PlaybackSessionPar
     }
 
     private func applyRemoteCommandOwnership() {
-        #if canImport(KSPlayer)
-        guard let playerLayer = playerLayer as? KSComplexPlayerLayer else { return }
-        if ownedGlobalCapabilities.contains(.remoteCommands) {
-            playerLayer.registerRemoteControllEvent()
-        } else {
-            playerLayer.removeRemoteControllEvent()
-        }
-        #endif
+        // 上游 kingslay/KSPlayer 2.3.4 无 KSComplexPlayerLayer（PiP/远程命令层），此处降级为 no-op。
     }
 }

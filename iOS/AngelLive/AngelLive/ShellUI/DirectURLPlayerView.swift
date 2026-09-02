@@ -59,15 +59,16 @@ struct DirectURLPlayerView: View {
 
         KSOptions.isAutoPlay = true
         KSOptions.isSecondOpen = false
-        KSOptions.canBackgroundPlay = PlayerSettingModel().enableBackgroundAudio
 
         // Direct URLs have no plugin hints, so URL inference is the final fallback.
         // Configure this options instance; KSOptions already copied static defaults in init.
         let urlString = url.absoluteString.lowercased()
         if urlString.contains(".m3u8") || urlString.contains("m3u8") {
-            options.playerTypes = [KSAVPlayer.self, KSMEPlayer.self]
+            KSOptions.firstPlayerType = KSAVPlayer.self
+            KSOptions.secondPlayerType = KSMEPlayer.self
         } else {
-            options.playerTypes = [KSMEPlayer.self]
+            KSOptions.firstPlayerType = KSMEPlayer.self
+            KSOptions.secondPlayerType = nil
         }
 
         let coordinator = KSVideoPlayer.Coordinator()
@@ -176,27 +177,14 @@ struct DirectURLPlayerView: View {
         // 后台自动 PiP
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
             if useKSPlayer {
-                if PlayerSettingModel().enableAutoPiPOnBackground,
-                   playbackSession.owns(.pictureInPicture) {
-                    #if canImport(KSPlayer)
-                    if let playerLayer = playerCoordinator.playerLayer as? KSComplexPlayerLayer,
-                       !playerLayer.isPictureInPictureActive {
-                        playerLayer.pipStart()
-                    }
-                    #endif
-                }
+                // PiP 已禁用（kingslay/KSPlayer 2.3.4 无 KSComplexPlayerLayer）
             } else {
                 vlcPlaybackController.enterBackground()
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             if useKSPlayer {
-                #if canImport(KSPlayer)
-                if let playerLayer = playerCoordinator.playerLayer as? KSComplexPlayerLayer,
-                   playerLayer.isPictureInPictureActive {
-                    playerLayer.pipStop(restoreUserInterface: true)
-                }
-                #endif
+                // PiP 已禁用
             } else {
                 vlcPlaybackController.becomeActive()
             }
@@ -274,7 +262,7 @@ struct DirectURLPlayerView: View {
             return PlayerControlBridge(
                 isPlaying: canPauseKSPlayback,
                 isBuffering: playbackStatus == .buffering,
-                supportsPictureInPicture: playerCoordinator.playerLayer is KSComplexPlayerLayer,
+                supportsPictureInPicture: false,
                 togglePlayPause: {
                     guard playbackSession.activate() else { return }
                     if canPauseKSPlayback {
@@ -288,16 +276,7 @@ struct DirectURLPlayerView: View {
                     refreshPlayback()
                 },
                 togglePictureInPicture: {
-                    guard playbackSession.activate() else { return }
-                    #if canImport(KSPlayer)
-                    if let playerLayer = playerCoordinator.playerLayer as? KSComplexPlayerLayer {
-                        if playerLayer.isPictureInPictureActive {
-                            playerLayer.pipStop(restoreUserInterface: true)
-                        } else {
-                            playerLayer.pipStart()
-                        }
-                    }
-                    #endif
+                    // PiP 已禁用
                 },
                 isMaskShow: $isMaskShow,
                 isLocked: $isLocked

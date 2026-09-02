@@ -49,8 +49,11 @@ public enum KSPlayerSessionConfigurator {
         }
 
         #if canImport(KSPlayer)
-        options.playerTypes = playerTypes
-        options.isLive = effectiveIsLive
+        // 上游 kingslay/KSPlayer 2.3.4 无实例级 playerTypes/isLive，改用静态 firstPlayerType/secondPlayerType 选择内核。
+        if let first = playerTypes.first {
+            KSOptions.firstPlayerType = first
+            KSOptions.secondPlayerType = playerTypes.count > 1 ? playerTypes[1] : nil
+        }
         #endif
 
         return KSPlayerAppliedSessionConfiguration(
