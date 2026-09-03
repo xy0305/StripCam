@@ -4,7 +4,7 @@
 //
 
 import SwiftUI
-import AVKit
+internal import AVKit
 import AngelLiveCore
 
 struct RecordingsView: View {

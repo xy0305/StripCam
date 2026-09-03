@@ -7,7 +7,7 @@
 //
 
 import Foundation
-import AVFoundation
+internal import AVFoundation
 
 final class HLSRecorder: @unchecked Sendable {
     enum RecorderError: LocalizedError {

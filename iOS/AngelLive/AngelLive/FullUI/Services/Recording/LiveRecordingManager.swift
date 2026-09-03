@@ -8,7 +8,8 @@
 
 import Foundation
 import SwiftUI
-import AVFoundation
+import Combine
+internal import AVFoundation
 import UIKit
 import AngelLiveCore
 
