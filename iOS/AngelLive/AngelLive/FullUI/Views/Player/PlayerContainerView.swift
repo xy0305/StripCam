@@ -220,15 +220,14 @@ struct PlayerContentView: View {
                    naturalSize.width > 1.0, naturalSize.height > 1.0 {
                     let ratio = naturalSize.width / naturalSize.height
                     let isPortrait = ratio < 1.0
-                    let isVerticalLive = isPortrait
                     Logger.debug("📺 [readyToPlay] 视频尺寸: \(naturalSize.width) x \(naturalSize.height)", category: .player)
                     Logger.debug("📐 [readyToPlay] 视频比例: \(ratio)", category: .player)
                     Logger.debug("📱 [readyToPlay] 视频方向: \(isPortrait ? "竖屏" : "横屏")", category: .player)
-                    applyVideoFillMode(isVerticalLive: isVerticalLive)
+                    applyVideoFillMode(isVerticalLive: false)
                     withAnimation(.easeInOut(duration: 0.2)) {
-                        videoAspectRatio = ratio
+                        videoAspectRatio = 16.0 / 9.0
                         isVideoPortrait = isPortrait
-                        isVerticalLiveMode = isVerticalLive
+                        isVerticalLiveMode = false
                         hasDetectedSize = true
                     }
                 }
@@ -415,19 +414,18 @@ struct PlayerContentView: View {
                                 } else if !hasDetectedSize {
                                     let ratio = naturalSize.width / naturalSize.height
                                     let isPortrait = ratio < 1.0
-                                    let isVerticalLive = isPortrait
 
                                     Logger.debug("📺 视频尺寸: \(naturalSize.width) x \(naturalSize.height)", category: .player)
                                     Logger.debug("📐 视频比例: \(ratio)", category: .player)
                                     Logger.debug("📱 视频方向: \(isPortrait ? "竖屏" : "横屏")", category: .player)
 
                                     await MainActor.run {
-                                        applyVideoFillMode(isVerticalLive: isVerticalLive)
+                                        applyVideoFillMode(isVerticalLive: false)
 
                                         withAnimation(.easeInOut(duration: 0.2)) {
-                                            videoAspectRatio = ratio
+                                            videoAspectRatio = 16.0 / 9.0
                                             isVideoPortrait = isPortrait
-                                            isVerticalLiveMode = isVerticalLive
+                                            isVerticalLiveMode = false
                                             hasDetectedSize = true
                                         }
                                     }

@@ -119,8 +119,10 @@ final class LiveRecordingManager: ObservableObject {
             headers["Origin"] = "https://zh.stripchat.com"
         }
 
-        let partURL = Self.recordingsDirectory()
-            .appendingPathComponent("\(Self.filePrefix(room))-\(Self.stamp()).part")
+        let folder = Self.recordingsDirectory()
+            .appendingPathComponent("\(Self.filePrefix(room))-\(Self.stamp())", isDirectory: true)
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let partURL = folder.appendingPathComponent("index.m3u8")
 
         let item = LiveRecordingItem(
             id: id,
@@ -196,7 +198,6 @@ final class LiveRecordingManager: ObservableObject {
             }
         }
         recorders[id]?.stop()
-        tasks[id]?.cancel()
         banner = "正在结束录制…"
     }
 
@@ -211,7 +212,8 @@ final class LiveRecordingManager: ObservableObject {
             stop(id: item.id)
         }
         if let url = item.fileURL {
-            try? FileManager.default.removeItem(at: url)
+            let folder = url.pathExtension.lowercased() == "m3u8" ? url.deletingLastPathComponent() : url
+            try? FileManager.default.removeItem(at: folder)
         }
         items.removeAll { $0.id == item.id && $0.startedAt == item.startedAt }
     }
@@ -227,17 +229,17 @@ final class LiveRecordingManager: ObservableObject {
         var bytes: Int64 = 0
         if let current = items.first(where: { $0.id == id }) {
             fileURL = current.fileURL.flatMap { existing in
+                if FileManager.default.fileExists(atPath: existing.path) { return existing }
                 let dir = existing.deletingLastPathComponent()
-                let stem = existing.deletingPathExtension().lastPathComponent
-                let candidates = ["mp4", "ts", "m4s", "part"].map {
-                    dir.appendingPathComponent("\(stem).\($0)")
-                }
-                return candidates.first { FileManager.default.fileExists(atPath: $0.path) } ?? existing
+                let playlist = dir.appendingPathComponent("index.m3u8")
+                if FileManager.default.fileExists(atPath: playlist.path) { return playlist }
+                return existing
             }
             bytes = current.bytes
-            if bytes == 0, let url = fileURL,
-               let values = try? url.resourceValues(forKeys: [.fileSizeKey]) {
-                bytes = Int64(values.fileSize ?? 0)
+            if let url = fileURL {
+                let folder = url.pathExtension.lowercased() == "m3u8" ? url.deletingLastPathComponent() : url
+                let folderBytes = Self.folderSize(folder)
+                if folderBytes > 0 { bytes = folderBytes }
             }
         }
         finish(id: id, url: fileURL, bytes: bytes, error: bytes == 0 ? "没有写入数据" : nil)
@@ -289,11 +291,22 @@ final class LiveRecordingManager: ObservableObject {
         let existingFinished = items.filter { !$0.isActive }
         var rebuilt = items.filter(\.isActive)
 
-        let recordings = files.filter { url in
+        var recordings: [URL] = []
+        for url in files {
+            var isDir: ObjCBool = false
+            if fm.fileExists(atPath: url.path, isDirectory: &isDir), isDir.boolValue {
+                let playlist = url.appendingPathComponent("index.m3u8")
+                if fm.fileExists(atPath: playlist.path) {
+                    recordings.append(playlist)
+                    continue
+                }
+            }
             let ext = url.pathExtension.lowercased()
-            return ["mp4", "ts", "m4s", "mov"].contains(ext)
+            if ["mp4", "ts", "m4s", "mov", "m3u8"].contains(ext) {
+                recordings.append(url)
+            }
         }
-        .sorted { a, b in
+        recordings.sort { a, b in
             let da = (try? a.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? .distantPast
             let db = (try? b.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? .distantPast
             return da > db
@@ -301,17 +314,19 @@ final class LiveRecordingManager: ObservableObject {
 
         for url in recordings {
             if existingFinished.contains(where: { $0.fileURL == url }) { continue }
-            let values = try? url.resourceValues(forKeys: [.fileSizeKey, .creationDateKey])
-            let name = Self.displayName(from: url)
+            let folder = url.pathExtension.lowercased() == "m3u8" ? url.deletingLastPathComponent() : url
+            let values = try? folder.resourceValues(forKeys: [.creationDateKey])
+            let bytes = Self.folderSize(folder)
+            let name = Self.displayName(from: folder)
             let item = LiveRecordingItem(
-                id: "file-\(url.lastPathComponent)",
+                id: "file-\(folder.lastPathComponent)",
                 roomId: "",
                 liveType: "",
                 userName: name,
-                roomTitle: url.lastPathComponent,
+                roomTitle: folder.lastPathComponent,
                 coverURL: "",
                 fileURL: url,
-                bytes: Int64(values?.fileSize ?? 0),
+                bytes: bytes,
                 startedAt: values?.creationDate ?? Date(),
                 endedAt: values?.creationDate,
                 status: .finished
@@ -321,6 +336,23 @@ final class LiveRecordingManager: ObservableObject {
             }
         }
         items = rebuilt
+    }
+
+    private static func folderSize(_ url: URL) -> Int64 {
+        let fm = FileManager.default
+        var isDir: ObjCBool = false
+        guard fm.fileExists(atPath: url.path, isDirectory: &isDir) else { return 0 }
+        if !isDir.boolValue {
+            return Int64((try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
+        }
+        guard let enumerator = fm.enumerator(at: url, includingPropertiesForKeys: [.fileSizeKey], options: [.skipsHiddenFiles]) else {
+            return 0
+        }
+        var total: Int64 = 0
+        for case let file as URL in enumerator {
+            total += Int64((try? file.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
+        }
+        return total
     }
 
     // MARK: - Background keep-alive

@@ -152,22 +152,42 @@ private struct IdentifiedURL: Identifiable {
 private struct RecordingPlayer: View {
     let url: URL
     @Environment(\.dismiss) private var dismiss
+    @State private var player: AVPlayer
+
+    init(url: URL) {
+        self.url = url
+        _player = State(initialValue: AVPlayer(url: url))
+    }
+
+    private var title: String {
+        let folder = url.pathExtension.lowercased() == "m3u8" ? url.deletingLastPathComponent() : url
+        return folder.lastPathComponent
+    }
 
     var body: some View {
         NavigationStack {
-            VideoPlayer(player: AVPlayer(url: url))
+            VideoPlayer(player: player)
                 .ignoresSafeArea()
-                .navigationTitle(url.lastPathComponent)
+                .navigationTitle(title)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
-                        Button("完成") { dismiss() }
+                        Button("完成") {
+                            player.pause()
+                            dismiss()
+                        }
                     }
                     ToolbarItem(placement: .topBarTrailing) {
                         ShareLink(item: url) {
                             Image(systemName: "square.and.arrow.up")
                         }
                     }
+                }
+                .onAppear {
+                    player.play()
+                }
+                .onDisappear {
+                    player.pause()
                 }
         }
     }

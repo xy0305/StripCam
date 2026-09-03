@@ -2,8 +2,8 @@
 //  HLSRecorder.swift
 //  AngelLive
 //
-//  独立于播放器的 HLS 分片下载。退出直播间后仍可继续，
-//  不走 AVAssetReader（LL-HLS / 音视频分离流会立刻失败）。
+//  把直播 HLS 存成本地 VOD 播放列表（init + 分片 + index.m3u8）。
+//  不再把 fMP4 分片硬拼成一个假 mp4 —— AVPlayer 打不开那种文件。
 //
 
 import Foundation
@@ -15,6 +15,7 @@ final class HLSRecorder: @unchecked Sendable {
         case emptyPlaylist
         case http(Int)
         case cancelled
+        case noSegments
 
         var errorDescription: String? {
             switch self {
@@ -22,6 +23,7 @@ final class HLSRecorder: @unchecked Sendable {
             case .emptyPlaylist: return "播放列表为空"
             case .http(let code): return "下载失败（HTTP \(code)）"
             case .cancelled: return "已取消"
+            case .noSegments: return "没有录到有效分片"
             }
         }
     }
@@ -57,6 +59,7 @@ final class HLSRecorder: @unchecked Sendable {
         return stopFlag
     }
 
+    /// `outputURL` 是最终的 `index.m3u8`。分片写在同一目录。
     func record(
         playlistURL: URL,
         headers: [String: String],
@@ -65,24 +68,22 @@ final class HLSRecorder: @unchecked Sendable {
     ) async throws -> Result {
         stopFlag = false
         let started = Date()
-        try FileManager.default.createDirectory(
-            at: outputURL.deletingLastPathComponent(),
-            withIntermediateDirectories: true
-        )
-        if FileManager.default.fileExists(atPath: outputURL.path) {
-            try FileManager.default.removeItem(at: outputURL)
-        }
-        FileManager.default.createFile(atPath: outputURL.path, contents: nil)
-        let handle = try FileHandle(forWritingTo: outputURL)
-        defer { try? handle.close() }
+        let directory = outputURL.deletingLastPathComponent()
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
 
         var bytes: Int64 = 0
         var mediaURL = playlistURL
         var seen = Set<String>()
         var wroteInit = false
+        var initName: String?
+        var segments: [(name: String, duration: Double)] = []
+        var targetDuration: Double = 1
         var consecutiveEmpty = 0
+        var index = 0
 
-        while !isStopped {
+        while !Task.isCancelled {
+            if isStopped { break }
+
             let text = try await fetchText(mediaURL, headers: headers)
             if isMaster(text) {
                 guard let next = pickBestVariant(text, base: mediaURL) else {
@@ -93,23 +94,43 @@ final class HLSRecorder: @unchecked Sendable {
             }
 
             let parsed = parseMedia(text, base: mediaURL)
+            targetDuration = max(targetDuration, parsed.targetDuration)
+
             if let initURL = parsed.mapURL, !wroteInit {
-                bytes += try await append(initURL, headers: headers, to: handle)
+                let name = "init.mp4"
+                let data = try await fetch(initURL, headers: headers)
+                try data.write(to: directory.appendingPathComponent(name), options: .atomic)
+                bytes += Int64(data.count)
+                initName = name
                 wroteInit = true
                 onBytes(bytes)
             }
 
             var added = 0
             for segment in parsed.segments {
-                if isStopped { break }
+                if isStopped || Task.isCancelled { break }
                 if seen.contains(segment.key) { continue }
                 seen.insert(segment.key)
-                bytes += try await append(segment.url, headers: headers, to: handle)
+                let ext = segment.url.pathExtension.isEmpty ? (wroteInit ? "m4s" : "ts") : segment.url.pathExtension
+                let name = String(format: "seg_%05d.%@", index, ext)
+                index += 1
+                let data = try await fetch(segment.url, headers: headers)
+                try data.write(to: directory.appendingPathComponent(name), options: .atomic)
+                bytes += Int64(data.count)
+                segments.append((name: name, duration: max(segment.duration, 0.01)))
                 added += 1
                 onBytes(bytes)
+                writePlaylist(
+                    to: outputURL,
+                    targetDuration: targetDuration,
+                    initName: initName,
+                    segments: segments,
+                    ended: false
+                )
             }
 
             if parsed.endList { break }
+            if isStopped { break }
             if added == 0 {
                 consecutiveEmpty += 1
                 if consecutiveEmpty > 40 { break }
@@ -118,16 +139,55 @@ final class HLSRecorder: @unchecked Sendable {
             }
 
             let wait = max(0.4, min(parsed.targetDuration / 2, 2.0))
-            try await sleep(wait)
+            await sleep(wait)
         }
 
-        try handle.synchronize()
+        guard !segments.isEmpty else {
+            throw bytes == 0 ? RecorderError.noSegments : RecorderError.cancelled
+        }
+
+        writePlaylist(
+            to: outputURL,
+            targetDuration: targetDuration,
+            initName: initName,
+            segments: segments,
+            ended: true
+        )
         let duration = Date().timeIntervalSince(started)
-        let finalized = try await finalize(outputURL)
-        return Result(outputURL: finalized, bytes: bytes, duration: duration)
+        return Result(outputURL: outputURL, bytes: bytes, duration: duration)
     }
 
-    // MARK: - Playlist
+    // MARK: - Playlist file
+
+    private func writePlaylist(
+        to url: URL,
+        targetDuration: Double,
+        initName: String?,
+        segments: [(name: String, duration: Double)],
+        ended: Bool
+    ) {
+        var lines: [String] = [
+            "#EXTM3U",
+            "#EXT-X-VERSION:7",
+            "#EXT-X-TARGETDURATION:\(max(1, Int(ceil(targetDuration))))",
+            "#EXT-X-MEDIA-SEQUENCE:0",
+            "#EXT-X-PLAYLIST-TYPE:\(ended ? "VOD" : "EVENT")"
+        ]
+        if let initName {
+            lines.append("#EXT-X-MAP:URI=\"\(initName)\"")
+        }
+        for segment in segments {
+            lines.append(String(format: "#EXTINF:%.3f,", segment.duration))
+            lines.append(segment.name)
+        }
+        if ended {
+            lines.append("#EXT-X-ENDLIST")
+        }
+        let body = lines.joined(separator: "\n") + "\n"
+        try? body.write(to: url, atomically: true, encoding: .utf8)
+    }
+
+    // MARK: - Playlist parse
 
     private func isMaster(_ text: String) -> Bool {
         text.contains("#EXT-X-STREAM-INF")
@@ -138,14 +198,24 @@ final class HLSRecorder: @unchecked Sendable {
         var bestBW = -1
         let lines = text.split(whereSeparator: \.isNewline).map(String.init)
         var pendingBW = 0
+        var pendingOK = false
         for line in lines {
+            if line.hasPrefix("#EXT-X-I-FRAME-STREAM-INF") {
+                pendingOK = false
+                continue
+            }
             if line.hasPrefix("#EXT-X-STREAM-INF") {
                 pendingBW = bandwidth(in: line)
-            } else if !line.hasPrefix("#"), !line.trimmingCharacters(in: .whitespaces).isEmpty {
+                pendingOK = line.contains("RESOLUTION") || line.contains("BANDWIDTH")
+                if line.contains("CODECS=\"mp4a") && !line.contains("avc") && !line.contains("hvc") && !line.contains("hev") {
+                    pendingOK = false
+                }
+            } else if pendingOK, !line.hasPrefix("#"), !line.trimmingCharacters(in: .whitespaces).isEmpty {
                 if pendingBW >= bestBW, let url = resolve(line, relativeTo: base) {
                     bestBW = pendingBW
                     bestURL = url
                 }
+                pendingOK = false
                 pendingBW = 0
             }
         }
@@ -155,13 +225,14 @@ final class HLSRecorder: @unchecked Sendable {
     private struct MediaPlaylist {
         var targetDuration: Double = 1
         var mapURL: URL?
-        var segments: [(key: String, url: URL)] = []
+        var segments: [(key: String, url: URL, duration: Double)] = []
         var endList = false
     }
 
     private func parseMedia(_ text: String, base: URL) -> MediaPlaylist {
         var parsed = MediaPlaylist()
         let lines = text.split(whereSeparator: \.isNewline).map { String($0).trimmingCharacters(in: .whitespaces) }
+        var pendingDuration: Double = 1
         var expectSegment = false
         var seq = 0
         for line in lines {
@@ -174,12 +245,15 @@ final class HLSRecorder: @unchecked Sendable {
                     parsed.mapURL = url
                 }
             } else if line.hasPrefix("#EXTINF:") {
+                let raw = line.dropFirst("#EXTINF:".count)
+                let number = raw.split(separator: ",", maxSplits: 1).first.map(String.init) ?? "1"
+                pendingDuration = Double(number) ?? 1
                 expectSegment = true
             } else if line == "#EXT-X-ENDLIST" {
                 parsed.endList = true
             } else if expectSegment, !line.hasPrefix("#"), !line.isEmpty {
                 if let url = resolve(line, relativeTo: base) {
-                    parsed.segments.append((key: "\(seq)-\(line)", url: url))
+                    parsed.segments.append((key: "\(seq)-\(line)", url: url, duration: pendingDuration))
                     seq += 1
                 }
                 expectSegment = false
@@ -203,6 +277,7 @@ final class HLSRecorder: @unchecked Sendable {
 
     private func resolve(_ ref: String, relativeTo base: URL) -> URL? {
         let trimmed = ref.trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "\""))
         if trimmed.hasPrefix("http://") || trimmed.hasPrefix("https://") {
             return URL(string: trimmed)
         }
@@ -219,15 +294,7 @@ final class HLSRecorder: @unchecked Sendable {
         return String(data: data, encoding: .utf8) ?? String(decoding: data, as: UTF8.self)
     }
 
-    private func append(_ url: URL, headers: [String: String], to handle: FileHandle) async throws -> Int64 {
-        let data = try await fetch(url, headers: headers)
-        try handle.seekToEnd()
-        try handle.write(contentsOf: data)
-        return Int64(data.count)
-    }
-
     private func fetch(_ url: URL, headers: [String: String]) async throws -> Data {
-        if isStopped { throw RecorderError.cancelled }
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.cachePolicy = .reloadIgnoringLocalCacheData
@@ -244,68 +311,15 @@ final class HLSRecorder: @unchecked Sendable {
         return data
     }
 
-    private func sleep(_ seconds: Double) async throws {
+    private func sleep(_ seconds: Double) async {
         let ns = UInt64(seconds * 1_000_000_000)
         let slice: UInt64 = 200_000_000
         var remaining = ns
         while remaining > 0 {
-            if isStopped { throw RecorderError.cancelled }
+            if isStopped || Task.isCancelled { return }
             let step = min(slice, remaining)
-            try await Task.sleep(nanoseconds: step)
+            try? await Task.sleep(nanoseconds: step)
             remaining -= step
         }
-    }
-
-    // MARK: - Finalize
-
-    private func finalize(_ partURL: URL) async throws -> URL {
-        let ext = guessExtension(partURL)
-        let finalURL = partURL.deletingPathExtension().appendingPathExtension(ext)
-        if finalURL != partURL {
-            if FileManager.default.fileExists(atPath: finalURL.path) {
-                try FileManager.default.removeItem(at: finalURL)
-            }
-            try FileManager.default.moveItem(at: partURL, to: finalURL)
-        }
-        if ext == "ts" || ext == "m4s" {
-            if let mp4 = await exportMP4(from: finalURL) {
-                return mp4
-            }
-        }
-        return finalURL
-    }
-
-    private func guessExtension(_ url: URL) -> String {
-        guard let handle = try? FileHandle(forReadingFrom: url),
-              let header = try? handle.read(upToCount: 12) else {
-            return "ts"
-        }
-        try? handle.close()
-        if header.starts(with: [0x00, 0x00, 0x00]) || header.dropFirst(4).starts(with: Array("ftyp".utf8)) {
-            return "mp4"
-        }
-        return "ts"
-    }
-
-    private func exportMP4(from url: URL) async -> URL? {
-        let dest = url.deletingPathExtension().appendingPathExtension("mp4")
-        if dest == url { return url }
-        let asset = AVURLAsset(url: url)
-        guard let session = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetPassthrough) else {
-            return nil
-        }
-        session.outputURL = dest
-        session.outputFileType = .mp4
-        if FileManager.default.fileExists(atPath: dest.path) {
-            try? FileManager.default.removeItem(at: dest)
-        }
-        await withCheckedContinuation { continuation in
-            session.exportAsynchronously {
-                continuation.resume()
-            }
-        }
-        guard session.status == .completed else { return nil }
-        try? FileManager.default.removeItem(at: url)
-        return dest
     }
 }

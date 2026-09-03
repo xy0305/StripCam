@@ -27,6 +27,7 @@ struct VerticalLiveControllerView: View {
     @State private var isFavoriteAnimating = false
     @State private var showStreamerInfo = false
     @State private var showQualityPanel = false
+    @ObservedObject private var recordingManager = LiveRecordingManager.shared
 
     /// 判断是否已收藏
     private var isFavorited: Bool {
@@ -176,10 +177,41 @@ struct VerticalLiveControllerView: View {
                 }
 
                 Spacer()
+
+                verticalRecordButton
             }
             .padding(.horizontal)
             Spacer()
         }
+    }
+
+    private var isCurrentRoomRecording: Bool {
+        recordingManager.isRecording(room: viewModel.currentRoom)
+    }
+
+    private var verticalRecordButton: some View {
+        Button {
+            let selection = RoomPlaybackResolver.selection(
+                in: viewModel.currentRoomPlayArgs,
+                cdnIndex: viewModel.currentCdnIndex,
+                qualityIndex: viewModel.currentQualityIndex
+            )
+            recordingManager.toggle(
+                room: viewModel.currentRoom,
+                playURL: viewModel.currentPlayURL,
+                playArgs: viewModel.currentRoomPlayArgs,
+                quality: selection?.quality
+            )
+        } label: {
+            Image(systemName: isCurrentRoomRecording ? "stop.circle.fill" : "record.circle")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(isCurrentRoomRecording ? .red : .white)
+                .frame(width: 40, height: 40)
+                .background(Color.black.opacity(AppConstants.PlayerUI.Opacity.backplate), in: Circle())
+                .adaptiveGlassEffect(in: .circle)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(isCurrentRoomRecording ? "停止录制" : "开始录制")
     }
 
     // MARK: - 左下角区域：弹幕气泡
