@@ -168,6 +168,10 @@ public final class AppFavoriteModel {
     /// 后台线程,再 await 其完成。既不阻塞主线程,又保证返回时 engine 已就绪。
     @MainActor
     private func startCloudSyncIfNeeded() async {
+        guard CloudKitGuard.isUsable else {
+            applyCloudState(isReady: false, message: CloudKitGuard.unavailableError.displayText)
+            return
+        }
         if let bootstrap = cloudSyncBootstrap {
             await bootstrap.value
             return

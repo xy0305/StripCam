@@ -20,7 +20,11 @@ private enum CloudFavoriteFields {
 }
 
 public final class FavoriteService: NSObject {
-    
+
+    private static func database() throws -> CKDatabase {
+        try CloudKitGuard.requireContainer(identifier: CloudFavoriteFields.containerIdentifier).privateCloudDatabase
+    }
+
     public static func saveRecord(liveModel: LiveModel) async throws {
         let rec = CKRecord(recordType: "favorite_streamers")
         rec.setValue(liveModel.roomId, forKey: CloudFavoriteFields.roomId)
@@ -30,15 +34,13 @@ public final class FavoriteService: NSObject {
         rec.setValue(liveModel.roomCover, forKey: CloudFavoriteFields.roomCover)
         rec.setValue(liveModel.userHeadImg, forKey: CloudFavoriteFields.userHeadImage)
         rec.setValue(liveModel.liveType.rawValue, forKey: CloudFavoriteFields.liveType)
-        _ = try await CKContainer(identifier: CloudFavoriteFields.containerIdentifier).privateCloudDatabase.save(rec)
+        _ = try await database().save(rec)
     }
-    
+
     public static func searchRecord(roomId: String) async throws -> [LiveModel] {
-        let container = CKContainer(identifier: CloudFavoriteFields.containerIdentifier)
-        let database = container.privateCloudDatabase
+        let database = try database()
         let predicate = NSPredicate(format: " \(CloudFavoriteFields.roomId) = '\(roomId)' ")
         let query = CKQuery(recordType: "favorite_streamers", predicate: predicate)
-        // 使用新的 API
         let recordArray = try await database.records(matching: query)
         var temp: Array<LiveModel> = []
         for record in recordArray.matchResults.compactMap({ try? $0.1.get() }) {
@@ -57,15 +59,13 @@ public final class FavoriteService: NSObject {
         }
         return temp
     }
-    
+
     public static func searchRecord() async throws -> [LiveModel] {
-        let container = CKContainer(identifier: CloudFavoriteFields.containerIdentifier)
-        let database = container.privateCloudDatabase
+        let database = try database()
         let query = CKQuery(recordType: "favorite_streamers", predicate: NSPredicate(value: true))
-        // 使用新的 API
         let recordArray = try await database.records(matching: query, resultsLimit: 99999)
         var temp: Array<LiveModel> = []
-        var seenKeys: Set<String> = []  // 用于去重
+        var seenKeys: Set<String> = []
         for record in recordArray.matchResults.compactMap({ try? $0.1.get() }) {
             let roomId = record.value(forKey: CloudFavoriteFields.roomId) as? String ?? ""
             guard let liveType = LiveType(rawValue: record.value(forKey: CloudFavoriteFields.liveType) as? String ?? "") else {
@@ -81,8 +81,6 @@ public final class FavoriteService: NSObject {
                                   userId: userId,
                                   roomId: roomId,
                                   liveWatchedCount: nil)
-            // 统一用 AppFavoriteModel.favoriteUniqueKey(roomId 主键、视 "0"/空为无效),
-            // 避免 userId="0" 的记录挤进 `4_u_0` 碰撞桶被丢。
             let uniqueKey = AppFavoriteModel.favoriteUniqueKey(for: model)
             guard !seenKeys.contains(uniqueKey) else { continue }
             seenKeys.insert(uniqueKey)
@@ -90,10 +88,9 @@ public final class FavoriteService: NSObject {
         }
         return temp
     }
-    
+
     public static func deleteRecord(liveModel: LiveModel) async throws {
-        let container = CKContainer(identifier: CloudFavoriteFields.containerIdentifier)
-        let database = container.privateCloudDatabase
+        let database = try database()
         let trimmedUserId = liveModel.userId.trimmingCharacters(in: .whitespacesAndNewlines)
         let predicate: NSPredicate
         if PlatformHostBehavior.favoriteIdentityKey(for: liveModel.liveType) == .userId, !trimmedUserId.isEmpty {
@@ -116,32 +113,24 @@ public final class FavoriteService: NSObject {
             try await database.deleteRecord(withID: record.recordID)
         }
     }
-    
+
     public static func getCloudState() async -> String {
-        // 1. 检查 CloudKit 容器标识符
+        guard CloudKitGuard.isUsable else {
+            return CloudKitGuard.unavailableError.displayText
+        }
         guard !CloudFavoriteFields.containerIdentifier.isEmpty else {
             return "CloudKit 配置错误：容器标识符为空"
         }
-        
-        // 2. 检查 CloudKit 可用性
-        guard CKContainer.default().containerIdentifier != nil else {
-            return "CloudKit 服务不可用"
-        }
-        
+
         do {
-            // 3. 使用更安全的容器初始化方式
-            let container: CKContainer
-            if CloudFavoriteFields.containerIdentifier == CKContainer.default().containerIdentifier {
-                container = CKContainer.default()
-            } else {
-                container = CKContainer(identifier: CloudFavoriteFields.containerIdentifier)
+            guard let container = CloudKitGuard.makeContainer(identifier: CloudFavoriteFields.containerIdentifier) else {
+                return CloudKitGuard.unavailableError.displayText
             }
-            
-            // 4. 添加超时保护
+
             let status = try await withTimeout(seconds: 10) {
                 try await container.accountStatus()
             }
-            
+
             switch status {
                 case .available:
                     return "正常"
@@ -161,12 +150,10 @@ public final class FavoriteService: NSObject {
         } catch is CancellationError {
             return "操作超时，请检查网络连接"
         } catch {
-            // 5. 处理其他未预期的错误
             return "获取iCloud状态失败：\(error.localizedDescription)"
         }
     }
-    
-    // 添加超时保护的辅助方法
+
     private static func withTimeout<T: Sendable>(seconds: TimeInterval, operation: @escaping @Sendable () async throws -> T) async throws -> T {
         return try await withThrowingTaskGroup(of: T.self) { group in
             group.addTask { @Sendable in
@@ -186,17 +173,11 @@ public final class FavoriteService: NSObject {
             return result
         }
     }
-    
-    /// 将任意错误转成可展示文案(人话 + 建议 + 错误码)。
-    ///
-    /// 实现已迁移到统一的 `SyncError`:
-    /// 三端所有 `formatErrorCode` 调用点因此自动升级为「原因 + 建议 + 错误码」。
-    /// 保留此静态方法签名以兼容现有调用点;新代码建议直接用 `SyncError.from(_:)`。
+
     public static func formatErrorCode(error: Error) -> String {
         SyncError.from(error).displayText
     }
 
-    /// 结构化错误,供需要 code / kind / advice 的调用点使用。
     public static func syncError(for error: Error) -> SyncError {
         SyncError.from(error)
     }

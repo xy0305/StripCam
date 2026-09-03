@@ -182,7 +182,11 @@ public final class PlatformCredentialSyncService: ObservableObject {
             result[pluginId] = session
         }
 
-        let container = CKContainer(identifier: CloudCookieFields.containerIdentifier)
+        guard let container = CloudKitGuard.makeContainer(identifier: CloudCookieFields.containerIdentifier) else {
+            let error = CloudKitGuard.unavailableError
+            lastSyncError = error
+            return .failure(error)
+        }
         let database = container.privateCloudDatabase
 
         // 获取现有所有 cloudRecord 的 pluginId 列表
@@ -244,7 +248,11 @@ public final class PlatformCredentialSyncService: ObservableObject {
         isSyncing = true
         defer { isSyncing = false }
 
-        let container = CKContainer(identifier: CloudCookieFields.containerIdentifier)
+        guard let container = CloudKitGuard.makeContainer(identifier: CloudCookieFields.containerIdentifier) else {
+            let error = CloudKitGuard.unavailableError
+            lastSyncError = error
+            return .failure(error)
+        }
         let database = container.privateCloudDatabase
 
         await migrateLegacyCloudRecords(database: database)
@@ -320,7 +328,9 @@ public final class PlatformCredentialSyncService: ObservableObject {
     }
 
     public func fetchCloudSyncPreview() async -> ICloudSyncPreview {
-        let container = CKContainer(identifier: CloudCookieFields.containerIdentifier)
+        guard let container = CloudKitGuard.makeContainer(identifier: CloudCookieFields.containerIdentifier) else {
+            return ICloudSyncPreview(latestTime: nil, platformNames: [])
+        }
         let database = container.privateCloudDatabase
 
         var latestDate: Date?
@@ -352,7 +362,9 @@ public final class PlatformCredentialSyncService: ObservableObject {
         isSyncing = true
         defer { isSyncing = false }
 
-        let container = CKContainer(identifier: CloudCookieFields.containerIdentifier)
+        guard let container = CloudKitGuard.makeContainer(identifier: CloudCookieFields.containerIdentifier) else {
+            return 0
+        }
         let database = container.privateCloudDatabase
         var recordIDsByName: [String: CKRecord.ID] = [:]
 
@@ -616,7 +628,9 @@ public final class PlatformCredentialSyncService: ObservableObject {
         loggedInByPluginId[pluginId] = false
 
         if clearICloud {
-            let container = CKContainer(identifier: CloudCookieFields.containerIdentifier)
+            guard let container = CloudKitGuard.makeContainer(identifier: CloudCookieFields.containerIdentifier) else {
+                return
+            }
             let database = container.privateCloudDatabase
             let recordName = CloudCookieFields.sessionRecordName(for: pluginId)
             let recordID = CKRecord.ID(recordName: recordName)

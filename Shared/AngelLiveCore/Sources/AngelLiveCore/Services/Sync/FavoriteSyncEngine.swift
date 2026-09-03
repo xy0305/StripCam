@@ -28,7 +28,7 @@ public final class FavoriteSyncEngine: @unchecked Sendable {
     private let zoneName = "FavoritesZone"
     private static let recordType = "favorite_streamers"
     private let zoneID: CKRecordZone.ID
-    private let container: CKContainer
+    private let container: CKContainer?
 
     private var engine: CKSyncEngine?
 
@@ -49,7 +49,7 @@ public final class FavoriteSyncEngine: @unchecked Sendable {
     private var repairCanonical: [String: String] = [:]   // 稳定 key -> 已保留的 recordName
 
     private init() {
-        container = CKContainer(identifier: containerID)
+        container = CloudKitGuard.makeContainer(identifier: containerID)
         zoneID = CKRecordZone.ID(zoneName: zoneName, ownerName: CKCurrentUserDefaultName)
     }
 
@@ -82,6 +82,10 @@ public final class FavoriteSyncEngine: @unchecked Sendable {
 
     /// 启动引擎(幂等)。会触发一次增量拉取。
     public func start() {
+        guard CloudKitGuard.isUsable, let container else {
+            Logger.warning("FavoriteSyncEngine 跳过启动: CloudKit entitlement 不可用", category: .cloudKit)
+            return
+        }
         guard engine == nil else { return }
         // 一次性 re-key 全量对账:删掉 token 落盘 → 本次以 nil token 全量拉取,
         // 在 fetchedRecordZoneChanges 里把旧 key 迁到稳定 key、删重复。
@@ -196,7 +200,7 @@ public final class FavoriteSyncEngine: @unchecked Sendable {
 
     /// 分页拉取 zone 内全部记录,按稳定 key 去重后返回。查询失败返回空。
     private func fetchAllZoneRecords() async -> [LiveModel] {
-        let db = container.privateCloudDatabase
+        guard let db = container?.privateCloudDatabase else { return [] }
         var models: [LiveModel] = []
         var cursor: CKQueryOperation.Cursor?
         repeat {

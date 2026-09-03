@@ -26,18 +26,29 @@ let package = Package(
     ],
     targets: [
         .target(
+            name: "AngelLiveCoreCKSafe",
+            path: "Sources/CKSafe",
+            publicHeadersPath: "include",
+            linkerSettings: [
+                .linkedFramework("CloudKit")
+            ]
+        ),
+        .target(
             name: "AngelLiveCore",
             dependencies: [
                 "Alamofire",
                 "Starscream",
+                "AngelLiveCoreCKSafe",
                 .product(name: "SWCompression", package: "SWCompression"),
                 .product(name: "SwiftProtobuf", package: "swift-protobuf"),
                 .product(name: "Cache", package: "Cache"),
                 .product(name: "SharedAssets", package: "SharedAssets", condition: .when(platforms: [.iOS, .tvOS]))
             ],
-            path: "Sources",
+            path: "Sources/AngelLiveCore",
             linkerSettings: [
-                .linkedFramework("JavaScriptCore")
+                .linkedFramework("JavaScriptCore"),
+                .linkedFramework("Security"),
+                .linkedFramework("CloudKit")
             ]
         ),
         .testTarget(

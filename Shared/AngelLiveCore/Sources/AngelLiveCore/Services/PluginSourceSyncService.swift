@@ -51,7 +51,9 @@ public final class PluginSourceSyncService {
     /// 返回结构化结果(错误带码 + 建议),便于调用方/后续 UI 展示;失败不再被静默吞掉。
     @discardableResult
     public static func syncToCloudStatic(sourceURLs: [String]) async -> OperationOutcome {
-        let container = CKContainer(identifier: CloudPluginSourceFields.containerIdentifier)
+        guard let container = CloudKitGuard.makeContainer(identifier: CloudPluginSourceFields.containerIdentifier) else {
+            return .failure(CloudKitGuard.unavailableError)
+        }
         let database = container.privateCloudDatabase
         let recordID = CKRecord.ID(recordName: CloudPluginSourceFields.fixedRecordName)
 
@@ -101,7 +103,11 @@ public final class PluginSourceSyncService {
             return
         }
 
-        let container = CKContainer(identifier: CloudPluginSourceFields.containerIdentifier)
+        guard let container = CloudKitGuard.makeContainer(identifier: CloudPluginSourceFields.containerIdentifier) else {
+            hasSyncedSources = false
+            syncedSourceURLs = []
+            return
+        }
         let database = container.privateCloudDatabase
         let recordID = CKRecord.ID(recordName: CloudPluginSourceFields.fixedRecordName)
 

@@ -127,8 +127,8 @@ public final class StreamBookmarkService {
 
     /// 每次现构造 CKContainer,不依赖任何实例状态,故与下面四个 I/O 方法一并声明为 static。
     /// 这样 @MainActor 方法 await 它们时无需把非 Sendable 的 self 跨隔离域传递。
-    private static var database: CKDatabase {
-        CKContainer(identifier: CloudStreamBookmarkFields.containerIdentifier).privateCloudDatabase
+    private static func database() throws -> CKDatabase {
+        try CloudKitGuard.requireContainer(identifier: CloudStreamBookmarkFields.containerIdentifier).privateCloudDatabase
     }
 
     private static func saveToCloud(_ bookmark: StreamBookmark) async throws {
@@ -140,15 +140,15 @@ public final class StreamBookmarkService {
         if let lastPlayed = bookmark.lastPlayedAt {
             record.setValue(lastPlayed, forKey: CloudStreamBookmarkFields.lastPlayedAt)
         }
-        _ = try await database.save(record)
+        _ = try await database().save(record)
     }
 
     private static func deleteFromCloud(_ bookmark: StreamBookmark) async throws {
         let predicate = NSPredicate(format: "%K = %@", CloudStreamBookmarkFields.bookmarkId, bookmark.id)
         let query = CKQuery(recordType: CloudStreamBookmarkFields.recordType, predicate: predicate)
-        let results = try await database.records(matching: query)
+        let results = try await database().records(matching: query)
         for record in results.matchResults.compactMap({ try? $0.1.get() }) {
-            try await database.deleteRecord(withID: record.recordID)
+            try await database().deleteRecord(withID: record.recordID)
         }
     }
 
@@ -160,7 +160,7 @@ public final class StreamBookmarkService {
 
     private static func fetchAllFromCloud() async throws -> [StreamBookmark] {
         let query = CKQuery(recordType: CloudStreamBookmarkFields.recordType, predicate: NSPredicate(value: true))
-        let results = try await database.records(matching: query, resultsLimit: 99999)
+        let results = try await database().records(matching: query, resultsLimit: 99999)
 
         var temp: [StreamBookmark] = []
         var seenIds: Set<String> = []

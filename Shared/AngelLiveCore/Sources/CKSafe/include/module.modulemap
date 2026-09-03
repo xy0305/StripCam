@@ -1,0 +1,4 @@
+module AngelLiveCoreCKSafe {
+    header "CKSafe.h"
+    export *
+}

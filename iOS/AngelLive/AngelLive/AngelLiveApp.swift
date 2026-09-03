@@ -73,7 +73,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         CrashLogStore.install()
-        CrashLogStore.appendBreadcrumb("didFinishLaunching")
+        CrashLogStore.appendBreadcrumb("didFinishLaunching cloudkit=\(CloudKitGuard.isUsable)")
         BugsnagBootstrap.start(platform: .iOS)
         // 仅预配置播放类别，避免应用启动时立刻打断其他 App 的音频。
         configureAudioSessionForPlayback()
