@@ -35,9 +35,9 @@ public final class PlatformViewModel {
         platformInfo = installedPlatforms.compactMap { platform -> Platformdescription? in
             guard seenPluginIds.insert(platform.pluginId).inserted else { return nil }
             let fallbackTitle = LiveParseTools.getLivePlatformName(platform.liveType)
-            let title = platformBaseByType[platform.liveType]?.livePlatformName ?? fallbackTitle
+            let title = platform.displayName.isEmpty ? fallbackTitle : platform.displayName
             let description = normalizedDescription(
-                platformBaseByType[platform.liveType]?.description,
+                platform.platformDescription ?? platformBaseByType[platform.liveType]?.description,
                 liveType: platform.liveType
             )
 

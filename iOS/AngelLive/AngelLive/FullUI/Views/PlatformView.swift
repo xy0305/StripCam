@@ -118,7 +118,7 @@ struct PlatformCard: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .clipped()
 
-            VStack(spacing: AppConstants.Spacing.md) {
+            VStack(spacing: 10) {
                 if let image = PlatformIconProvider.configCardImage(
                     for: platform.liveType,
                     isDarkMode: colorScheme == .dark
@@ -126,12 +126,27 @@ struct PlatformCard: View {
                     Image(uiImage: image)
                         .resizable()
                         .aspectRatio(contentMode: .fit)
-                        .frame(maxHeight: 80)
+                        .frame(maxHeight: 56)
                 } else {
-                    Image(systemName: "play.tv")
-                        .font(.system(size: 50))
-                        .foregroundStyle(AppConstants.Colors.primaryText)
+                    Image(systemName: "play.tv.fill")
+                        .font(.system(size: 34, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 56, height: 56)
+                        .background(
+                            LinearGradient(
+                                colors: [Color(red: 1, green: 0.23, blue: 0.42), Color(red: 0.72, green: 0.18, blue: 0.86)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        )
                 }
+
+                Text(platform.title)
+                    .font(.headline.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .shadow(color: .black.opacity(0.45), radius: 4, y: 1)
             }
             .padding(AppConstants.Spacing.lg)
         }

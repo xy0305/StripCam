@@ -71,7 +71,9 @@ public struct KSVideoPlayerView: View {
                         // 切换直播间时重置自动旋转标志
                         hasAutoRotatedForCurrentRoom = false
                     }
-                if let playerLayer = model.config.playerLayer, let dynamicInfo = playerLayer.player.dynamicInfo {
+                if GeneralSettingModel().developerModeEnabled,
+                   let playerLayer = model.config.playerLayer,
+                   let dynamicInfo = playerLayer.player.dynamicInfo {
                     HUDLogView(dynamicInfo: dynamicInfo)
                 }
                 // 需要放在这里才能生效

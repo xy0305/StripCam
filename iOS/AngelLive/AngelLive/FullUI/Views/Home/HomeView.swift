@@ -125,7 +125,7 @@ private extension HomeView {
             )
 
         return ScrollView {
-            LazyVStack(alignment: .leading, spacing: 28) {
+            LazyVStack(alignment: .leading, spacing: 18) {
                 if !viewModel.bannerEntries.isEmpty {
                     HomeHeroCarousel(
                         entries: viewModel.bannerEntries,
@@ -253,11 +253,11 @@ private extension HomeView {
     }
 
     func featuredRoomCardWidth(for containerWidth: CGFloat) -> CGFloat {
-        min(max((containerWidth - 52) / 1.72, 164), 300)
+        min(max((containerWidth - 48) / 2.15, 148), 196)
     }
 
     func compactRoomCardWidth(for containerWidth: CGFloat) -> CGFloat {
-        min(max((containerWidth - 56) / 2.05, 156), 240)
+        min(max((containerWidth - 48) / 2.15, 148), 196)
     }
 
     var playerPresentedBinding: Binding<Bool> {
@@ -800,7 +800,7 @@ private struct HomeHeroCarousel: View {
     }
 
     private var cardHeight: CGFloat {
-        min(max(viewportWidth * 0.9, 336), 500)
+        min(max(viewportWidth * 0.62, 240), 340)
     }
 
     private var viewportSize: CGSize {
@@ -1429,7 +1429,7 @@ private struct HomeHeroLoadingCard: View {
     }
 
     private var cardHeight: CGFloat {
-        min(max(viewportWidth * 0.9, 336), 500)
+        min(max(viewportWidth * 0.62, 240), 340)
     }
 
     var body: some View {
