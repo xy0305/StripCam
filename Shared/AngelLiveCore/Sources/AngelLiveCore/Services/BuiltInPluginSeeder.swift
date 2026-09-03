@@ -10,7 +10,7 @@ import Foundation
 
 public enum BuiltInPluginSeeder {
     public static let pluginId = "stripchat"
-    public static let bundledVersion = "1.0.1"
+    public static let bundledVersion = "1.0.2"
 
     @discardableResult
     public static func seedIfNeeded() -> Bool {

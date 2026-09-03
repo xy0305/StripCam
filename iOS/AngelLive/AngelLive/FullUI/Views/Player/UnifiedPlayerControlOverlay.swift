@@ -27,6 +27,7 @@ struct UnifiedPlayerControlOverlay: View {
     @State private var statusBarVM = StatusBarViewModel()
     @State private var videoScaleMode: VideoScaleMode = PlayerSettingModel().videoScaleMode
     @State private var showQualityPanel = false
+    @ObservedObject private var recordingManager = LiveRecordingManager.shared
 
     // 将 bridge.isMaskShow 的值提取到本地 @State 以便 SwiftUI 能可靠追踪变化
     @State private var isMaskVisible: Bool = true
@@ -359,6 +360,8 @@ struct UnifiedPlayerControlOverlay: View {
             HStack {
                 Spacer()
                 HStack(spacing: 16) {
+                    recordButton
+
                     if bridge.supportsPictureInPicture {
                         Button {
                             bridge.togglePictureInPicture()
@@ -690,5 +693,35 @@ struct UnifiedPlayerControlOverlay: View {
     private func cancelAutoHideTimer() {
         autoHideTask?.cancel()
         autoHideTask = nil
+    }
+
+    // MARK: - Record
+
+    private var isCurrentRoomRecording: Bool {
+        recordingManager.isRecording(room: viewModel.currentRoom)
+    }
+
+    private var recordButton: some View {
+        Button {
+            let selection = RoomPlaybackResolver.selection(
+                in: viewModel.currentRoomPlayArgs,
+                cdnIndex: viewModel.currentCdnIndex,
+                qualityIndex: viewModel.currentQualityIndex
+            )
+            recordingManager.toggle(
+                room: viewModel.currentRoom,
+                playURL: viewModel.currentPlayURL,
+                playArgs: viewModel.currentRoomPlayArgs,
+                quality: selection?.quality
+            )
+            startAutoHideTimer()
+        } label: {
+            Image(systemName: isCurrentRoomRecording ? "stop.circle.fill" : "record.circle")
+                .frame(width: 30, height: 30)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(isCurrentRoomRecording ? .red : .white)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(isCurrentRoomRecording ? "停止录制" : "开始录制")
     }
 }

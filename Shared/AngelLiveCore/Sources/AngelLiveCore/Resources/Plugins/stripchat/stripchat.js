@@ -67,6 +67,15 @@
         };
     }
 
+    function playHeaders() {
+        return {
+            "User-Agent": UA,
+            "Accept": "*/*",
+            "Referer": "https://zh.stripchat.com/",
+            "Origin": "https://zh.stripchat.com"
+        };
+    }
+
     async function httpJSON(url) {
         var res = await Host.http.request({ url: url, method: "GET", headers: headers() });
         if (res.status < 200 || res.status >= 300) {
@@ -199,10 +208,10 @@
         var qn = 0;
         for (var c = 0; c < bases.length; c++) {
             var qs = [];
-            qs.push({ title: "自动（最高画质）", qn: qn++, url: bases[c] + roomId + "_auto.m3u8", liveCodeType: "m3u8", liveType: LIVE_TYPE, roomId: String(roomId) });
+            qs.push({ title: "自动（最高画质）", qn: qn++, url: bases[c] + roomId + "_auto.m3u8", liveCodeType: "m3u8", liveType: LIVE_TYPE, roomId: String(roomId), userAgent: UA, headers: playHeaders() });
             for (var q = 0; q < order.length; q++) {
                 var quality = order[q];
-                qs.push({ title: quality, qn: qn++, url: bases[c] + roomId + "_" + quality + ".m3u8?playlistType=lowLatency", liveCodeType: "m3u8", liveType: LIVE_TYPE, roomId: String(roomId) });
+                qs.push({ title: quality, qn: qn++, url: bases[c] + roomId + "_" + quality + ".m3u8?playlistType=lowLatency", liveCodeType: "m3u8", liveType: LIVE_TYPE, roomId: String(roomId), userAgent: UA, headers: playHeaders() });
             }
             result.push({ cdn: "线路 " + (c + 1), qualitys: qs });
         }

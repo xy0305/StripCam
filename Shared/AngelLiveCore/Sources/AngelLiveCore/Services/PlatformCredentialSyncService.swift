@@ -144,6 +144,11 @@ public final class PlatformCredentialSyncService: ObservableObject {
         loggedInByPluginId[pluginId] ?? false
     }
 
+    /// 任意已安装平台是否处于登录态。
+    public var hasAnyLoggedInSession: Bool {
+        loggedInByPluginId.values.contains(true)
+    }
+
     /// 刷新单个平台登录状态
     public func refreshLoginStatus(pluginId: String) async {
         if let session = await PlatformSessionManager.shared.getSession(pluginId: pluginId),

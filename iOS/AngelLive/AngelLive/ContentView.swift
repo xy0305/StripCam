@@ -33,6 +33,7 @@ struct ContentView: View {
     @AppStorage(HomePagePreference.selectedPluginStorageKey, store: .shared)
     private var selectedHomePluginId = ""
     @Environment(\.presentToast) private var presentToast
+    @ObservedObject private var recordingManager = LiveRecordingManager.shared
 
     // 首次启动管理器
     @Environment(WelcomeManager.self) private var welcomeManager
@@ -179,6 +180,13 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .switchToSettings)) { _ in
             selectedTab = .settings
+        }
+        .onChange(of: recordingManager.banner) { _, message in
+            guard let message, !message.isEmpty else { return }
+            presentToast(ToastValue(
+                icon: Image(systemName: recordingManager.activeCount > 0 ? "record.circle" : "checkmark.circle.fill"),
+                message: message
+            ))
         }
         .sheet(isPresented: $manager.showWelcome) {
             WelcomeView {

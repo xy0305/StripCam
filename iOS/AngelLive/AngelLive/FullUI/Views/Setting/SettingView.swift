@@ -11,6 +11,7 @@ import Kingfisher
 
 struct SettingView: View {
     @ObservedObject private var syncService = PlatformCredentialSyncService.shared
+    @ObservedObject private var recordingManager = LiveRecordingManager.shared
     @State private var generalSetting = GeneralSettingModel()
     @State private var cacheSizeText: String = "计算中..."
     @State private var isClearingCache = false
@@ -21,9 +22,8 @@ struct SettingView: View {
         @Bindable var setting = generalSetting
         NavigationStack {
             List {
-                // 账号设置
-                if pluginAvailability.hasAvailablePlugins,
-                   !pluginAvailability.loginRequiredInstalledPluginIds.isEmpty {
+                // 账号设置：只要装了带 loginFlow 的插件就显示，不再要求 auth.required。
+                if pluginAvailability.hasAvailablePlugins {
                     Section {
                         NavigationLink {
                             PlatformAccountLoginView()
@@ -33,20 +33,40 @@ struct SettingView: View {
                                 Image(systemName: "person.crop.circle.badge.checkmark")
                                     .font(.title3)
                                     .foregroundStyle(AppConstants.Colors.link.gradient)
-                                .frame(width: 24, height: 24)
-                                .frame(width: 32)
+                                    .frame(width: 32)
 
                                 Text("平台账号登录")
 
                                 Spacer()
 
-                                Text("多平台")
+                                Text(syncService.hasAnyLoggedInSession ? "已登录" : "未登录")
                                     .font(.caption)
-                                    .foregroundStyle(AppConstants.Colors.secondaryText)
+                                    .foregroundStyle(syncService.hasAnyLoggedInSession ? AppConstants.Colors.success : AppConstants.Colors.secondaryText)
+                            }
+                        }
+
+                        NavigationLink {
+                            RecordingsView()
+                                .toolbar(.hidden, for: .tabBar)
+                        } label: {
+                            HStack {
+                                Image(systemName: "record.circle")
+                                    .font(.title3)
+                                    .foregroundStyle(Color.red.gradient)
+                                    .frame(width: 32)
+
+                                Text("录像")
+
+                                Spacer()
+
+                                let active = recordingManager.activeCount
+                                Text(active > 0 ? "\(active) 路录制中" : "\(recordingManager.items.count) 个")
+                                    .font(.caption)
+                                    .foregroundStyle(active > 0 ? Color.red : AppConstants.Colors.secondaryText)
                             }
                         }
                     } header: {
-                        Text("账号")
+                        Text("账号与录像")
                     }
                 }
 

@@ -327,7 +327,19 @@ struct PlatformLoginWebSheet: View {
 
     private func containsAuthenticatedCookie(in cookies: [HTTPCookie], loginFlow: ManifestLoginFlow) -> Bool {
         let names = Set(cookies.map(\.name))
-        return loginFlow.authSignalCookies.contains { names.contains($0) }
+        let signals = loginFlow.authSignalCookies
+        if !signals.isEmpty {
+            let exact = signals.contains { names.contains($0) }
+            let prefix = signals.contains { signal in
+                names.contains { $0.hasPrefix(signal) || $0.localizedCaseInsensitiveContains(signal) }
+            }
+            if exact || prefix { return true }
+        }
+        // Stripchat / 通用兜底：会话类 Cookie 出现即视为已登录。
+        let fallback = ["session", "sid", "auth", "token", "csrf", "remember"]
+        return names.contains { name in
+            fallback.contains { name.localizedCaseInsensitiveContains($0) }
+        }
     }
 
     private func makeCookieSignature(from cookies: [HTTPCookie]) -> String {
