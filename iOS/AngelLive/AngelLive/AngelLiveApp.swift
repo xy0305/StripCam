@@ -25,23 +25,36 @@ struct AngelLiveApp: App {
     // 连接 AppDelegate 以支持屏幕方向控制
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
-    // 全局播放器协调器管理器
     @State private var playerManager = PlayerCoordinatorManager()
-
-    // 首次启动管理器
     @State private var welcomeManager = WelcomeManager()
+    @State private var showRecovery: Bool
+
+    init() {
+        CrashLogStore.install()
+        _showRecovery = State(initialValue: CrashLogStore.shouldShowRecovery)
+    }
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .developerModeConsoleOverlay()
-                .environment(playerManager)
-                .environment(welcomeManager)
-                .installToast(position: .top)
-                // 旧单平台凭证管理已删除，凭证同步由 PlatformCredentialSyncService 管理
-                .onAppear {
-                    GeneralSettingModel().globalGeneralSettingFavoriteStyle = AngelLiveFavoriteStyle.liveState.rawValue
+            Group {
+                if showRecovery {
+                    CrashRecoveryView {
+                        CrashLogStore.appendBreadcrumb("user_continue")
+                        showRecovery = false
+                    }
+                    .onAppear { CrashLogStore.markUIReady() }
+                } else {
+                    ContentView()
+                        .developerModeConsoleOverlay()
+                        .environment(playerManager)
+                        .environment(welcomeManager)
+                        .installToast(position: .top)
+                        .onAppear {
+                            CrashLogStore.markUIReady()
+                            GeneralSettingModel().globalGeneralSettingFavoriteStyle = AngelLiveFavoriteStyle.liveState.rawValue
+                        }
                 }
+            }
         }
     }
 }
@@ -59,6 +72,8 @@ private extension View {
 class AppDelegate: NSObject, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        CrashLogStore.install()
+        CrashLogStore.appendBreadcrumb("didFinishLaunching")
         BugsnagBootstrap.start(platform: .iOS)
         // 仅预配置播放类别，避免应用启动时立刻打断其他 App 的音频。
         configureAudioSessionForPlayback()
