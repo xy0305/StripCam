@@ -26,7 +26,7 @@ final class HLSRecorder: @unchecked Sendable {
         }
     }
 
-    struct Result {
+    struct Result: Sendable {
         let outputURL: URL
         let bytes: Int64
         let duration: TimeInterval

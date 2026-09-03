@@ -143,35 +143,44 @@ final class LiveRecordingManager: ObservableObject {
         let recorder = HLSRecorder()
         recorders[id] = recorder
         let headersCopy = headers
-        tasks[id] = Task.detached(priority: .utility) { [weak self] in
-            do {
-                let result = try await recorder.record(
-                    playlistURL: streamURL,
-                    headers: headersCopy,
-                    outputURL: partURL,
-                    onBytes: { bytes in
-                        Task { @MainActor in
-                            self?.update(id: id) { item in
-                                item.bytes = bytes
+        enum RecOutcome: Sendable {
+            case success(URL, Int64)
+            case cancelled
+            case failed(String)
+        }
+        tasks[id] = Task { [weak self] in
+            let outcome: RecOutcome = await Task.detached(priority: .utility) {
+                do {
+                    let result = try await recorder.record(
+                        playlistURL: streamURL,
+                        headers: headersCopy,
+                        outputURL: partURL,
+                        onBytes: { bytes in
+                            Task { @MainActor in
+                                LiveRecordingManager.shared.update(id: id) { item in
+                                    item.bytes = bytes
+                                }
                             }
                         }
-                    }
-                )
-                await MainActor.run {
-                    self?.finish(id: id, url: result.outputURL, bytes: result.bytes, error: nil)
+                    )
+                    return .success(result.outputURL, result.bytes)
+                } catch is CancellationError {
+                    return .cancelled
+                } catch HLSRecorder.RecorderError.cancelled {
+                    return .cancelled
+                } catch {
+                    return .failed(error.localizedDescription)
                 }
-            } catch is CancellationError {
-                await MainActor.run {
-                    self?.finish(id: id, url: nil, bytes: nil, error: "已取消")
-                }
-            } catch HLSRecorder.RecorderError.cancelled {
-                await MainActor.run {
-                    self?.finishStopped(id: id)
-                }
-            } catch {
-                await MainActor.run {
-                    self?.finish(id: id, url: nil, bytes: nil, error: error.localizedDescription)
-                }
+            }.value
+
+            guard let self else { return }
+            switch outcome {
+            case .success(let url, let bytes):
+                self.finish(id: id, url: url, bytes: bytes, error: nil)
+            case .cancelled:
+                self.finishStopped(id: id)
+            case .failed(let message):
+                self.finish(id: id, url: nil, bytes: nil, error: message)
             }
         }
     }
