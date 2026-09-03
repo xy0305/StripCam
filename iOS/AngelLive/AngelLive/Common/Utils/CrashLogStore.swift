@@ -5,12 +5,14 @@
 //  侧载包经常被系统 SIGKILL，设置里的「分析数据」不一定有记录。
 //  启动面包屑和捕获到的异常/信号写进沙盒，下次打开就能导出。
 //
+//  工程默认 MainActor 隔离，C 回调必须是 nonisolated + @convention(c)。
+//
 
 import Darwin
 import Foundation
 import UIKit
 
-enum CrashLogStore {
+nonisolated enum CrashLogStore {
     private static let folderName = "CrashLogs"
     private static let breadcrumbFile = "launch-breadcrumbs.log"
     private static let crashFile = "last-crash.log"
@@ -62,30 +64,29 @@ enum CrashLogStore {
         writeBootState(stateBooting)
         publishToDocuments()
 
-        NSSetUncaughtExceptionHandler(uncaughtExceptionHandler)
-
-        signal(SIGABRT, crashSignalHandler)
-        signal(SIGSEGV, crashSignalHandler)
-        signal(SIGBUS, crashSignalHandler)
-        signal(SIGILL, crashSignalHandler)
-        signal(SIGTRAP, crashSignalHandler)
-        signal(SIGFPE, crashSignalHandler)
-        signal(SIGSYS, crashSignalHandler)
+        NSSetUncaughtExceptionHandler(crashUncaughtExceptionHandler)
+        signal(SIGABRT, crashPOSIXSignalHandler)
+        signal(SIGSEGV, crashPOSIXSignalHandler)
+        signal(SIGBUS, crashPOSIXSignalHandler)
+        signal(SIGILL, crashPOSIXSignalHandler)
+        signal(SIGTRAP, crashPOSIXSignalHandler)
+        signal(SIGFPE, crashPOSIXSignalHandler)
+        signal(SIGSYS, crashPOSIXSignalHandler)
 
         NotificationCenter.default.addObserver(
             forName: UIApplication.willTerminateNotification,
             object: nil,
             queue: .main
         ) { _ in
-            markCleanExit()
+            CrashLogStore.markCleanExit()
         }
         NotificationCenter.default.addObserver(
             forName: UIApplication.didEnterBackgroundNotification,
             object: nil,
             queue: .main
         ) { _ in
-            appendBreadcrumb("did_enter_background \(isoNow())")
-            publishToDocuments()
+            CrashLogStore.appendBreadcrumb("did_enter_background \(isoNow())")
+            CrashLogStore.publishToDocuments()
         }
     }
 
@@ -150,7 +151,25 @@ enum CrashLogStore {
         try? exportText().data(using: .utf8)?.write(to: export, options: .atomic)
     }
 
-    // MARK: - Private
+    static func writeCrashText(_ text: String) {
+        let payload = text.hasSuffix("\n") ? text : text + "\n"
+        try? payload.data(using: .utf8)?.write(to: crashURL, options: .atomic)
+        appendBreadcrumb("crash_written \(isoNow())")
+        publishToDocuments()
+    }
+
+    static func writeCrashSignal(_ sig: Int32) {
+        guard crashFD >= 0 else { return }
+        var buf: [Int8] = [83, 73, 71, 32, 48, 48, 48, 10]
+        let value = abs(Int(sig))
+        buf[4] = 48 + Int8((value / 100) % 10)
+        buf[5] = 48 + Int8((value / 10) % 10)
+        buf[6] = 48 + Int8(value % 10)
+        _ = buf.withUnsafeBufferPointer { pointer in
+            Darwin.write(crashFD, pointer.baseAddress, 8)
+        }
+        _ = Darwin.fsync(crashFD)
+    }
 
     private static func fileHasContent(_ url: URL) -> Bool {
         guard let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
@@ -186,39 +205,19 @@ enum CrashLogStore {
         }
         crashFD = open(signalURL.path, O_WRONLY | O_CREAT | O_APPEND, 0o644)
     }
-
-    fileprivate static func writeCrashText(_ text: String) {
-        let payload = text.hasSuffix("\n") ? text : text + "\n"
-        try? payload.data(using: .utf8)?.write(to: crashURL, options: .atomic)
-        appendBreadcrumb("crash_written \(isoNow())")
-        publishToDocuments()
-    }
-
-    fileprivate static func writeCrashSignal(_ sig: Int32) {
-        guard crashFD >= 0 else { return }
-        var buf: [Int8] = [83, 73, 71, 32, 48, 48, 48, 10]
-        let value = abs(Int(sig))
-        buf[4] = 48 + Int8((value / 100) % 10)
-        buf[5] = 48 + Int8((value / 10) % 10)
-        buf[6] = 48 + Int8(value % 10)
-        _ = buf.withUnsafeBufferPointer { pointer in
-            Darwin.write(crashFD, pointer.baseAddress, 8)
-        }
-        _ = Darwin.fsync(crashFD)
-    }
 }
 
-private func isoNow() -> String {
+nonisolated private func isoNow() -> String {
     ISO8601DateFormatter().string(from: Date())
 }
 
-private func crashSignalHandler(_ sig: Int32) {
+nonisolated private func crashPOSIXSignalHandler(_ sig: Int32) {
     CrashLogStore.writeCrashSignal(sig)
     signal(sig, SIG_DFL)
     raise(sig)
 }
 
-private func uncaughtExceptionHandler(_ exception: NSException) {
+nonisolated private func crashUncaughtExceptionHandler(_ exception: NSException) {
     let stack = exception.callStackSymbols.joined(separator: "\n")
     let text = """
     NSException \(isoNow())
