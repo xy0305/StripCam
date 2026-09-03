@@ -45,6 +45,9 @@ let package = Package(
                 .product(name: "SharedAssets", package: "SharedAssets", condition: .when(platforms: [.iOS, .tvOS]))
             ],
             path: "Sources/AngelLiveCore",
+            resources: [
+                .copy("Resources/Plugins")
+            ],
             linkerSettings: [
                 .linkedFramework("JavaScriptCore"),
                 .linkedFramework("Security"),

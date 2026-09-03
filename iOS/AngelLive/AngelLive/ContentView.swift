@@ -194,6 +194,8 @@ struct ContentView: View {
             // 注入插件安装确认请求器
             pluginSourceManager.consentRequester = consentService
 
+            BuiltInPluginSeeder.seedIfNeeded()
+
             // 启动时拉取 key 映射（后台静默，不阻塞 UI）
             Task { await PluginSourceKeyService.shared.fetchKeys() }
             await pluginAvailability.checkAvailability()
