@@ -223,9 +223,10 @@ struct PlayerContentView: View {
                     Logger.debug("📺 [readyToPlay] 视频尺寸: \(naturalSize.width) x \(naturalSize.height)", category: .player)
                     Logger.debug("📐 [readyToPlay] 视频比例: \(ratio)", category: .player)
                     Logger.debug("📱 [readyToPlay] 视频方向: \(isPortrait ? "竖屏" : "横屏")", category: .player)
+                    // 网页竖屏：按真实比例铺满宽度，不裁切铺满整机，也不塞进 16:9。
                     applyVideoFillMode(isVerticalLive: false)
                     withAnimation(.easeInOut(duration: 0.2)) {
-                        videoAspectRatio = 16.0 / 9.0
+                        videoAspectRatio = ratio
                         isVideoPortrait = isPortrait
                         isVerticalLiveMode = false
                         hasDetectedSize = true
@@ -270,10 +271,14 @@ struct PlayerContentView: View {
 
     // 计算视频高度
     private func calculatedHeight(for size: CGSize) -> CGFloat {
-        let shouldFillHeight = isDeviceLandscape || AppConstants.Device.isIPad || isVerticalLiveMode
-        let calculatedByRatio = size.width / videoAspectRatio
-
-        return shouldFillHeight ? size.height : calculatedByRatio
+        let shouldFillHeight = isDeviceLandscape || AppConstants.Device.isIPad
+        let ratio = max(videoAspectRatio, 0.01)
+        let calculatedByRatio = size.width / ratio
+        if shouldFillHeight {
+            return size.height
+        }
+        // 竖屏流按真实宽高比铺满宽度，最高不超过当前可用高度。
+        return min(calculatedByRatio, size.height)
     }
 
     private func roomSwitcherGesture(in size: CGSize) -> some Gesture {
@@ -423,7 +428,7 @@ struct PlayerContentView: View {
                                         applyVideoFillMode(isVerticalLive: false)
 
                                         withAnimation(.easeInOut(duration: 0.2)) {
-                                            videoAspectRatio = 16.0 / 9.0
+                                            videoAspectRatio = ratio
                                             isVideoPortrait = isPortrait
                                             isVerticalLiveMode = false
                                             hasDetectedSize = true
