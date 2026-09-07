@@ -329,11 +329,15 @@ struct PlatformLoginWebSheet: View {
         let names = Set(cookies.map(\.name))
         let signals = loginFlow.authSignalCookies
         if !signals.isEmpty {
-            let exact = signals.contains { names.contains($0) }
-            let prefix = signals.contains { signal in
-                names.contains { $0.hasPrefix(signal) || $0.localizedCaseInsensitiveContains(signal) }
+            func matches(_ signal: String) -> Bool {
+                names.contains { $0 == signal || $0.hasPrefix(signal) || $0.localizedCaseInsensitiveContains(signal) }
             }
-            if exact || prefix { return true }
+            // 多个信号 Cookie（如 chaturbate 的 csrftoken+sessionid）要求全部出现，
+            // 避免"仅 csrftoken"这种未登录态被误判为已登录。
+            if signals.count > 1 {
+                return signals.allSatisfy(matches)
+            }
+            if signals.contains(where: matches) { return true }
         }
         // Stripchat / 通用兜底：会话类 Cookie 出现即视为已登录。
         let fallback = ["session", "sid", "auth", "token", "csrf", "remember"]

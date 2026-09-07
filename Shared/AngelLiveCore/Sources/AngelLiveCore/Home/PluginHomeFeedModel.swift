@@ -106,11 +106,12 @@ public final class PluginHomeFeedModel {
             .filter { PlatformCapability.supports(.homeFeed, for: $0.liveType) }
 
         let activePluginIds = Set(platforms.map(\.pluginId))
-        platformOptions = platforms.map {
+        let orderedPlatforms = orderedForHomeFeed(platforms)
+        platformOptions = orderedPlatforms.map {
             HomePlatformOption(pluginId: $0.pluginId, displayName: $0.displayName, liveType: $0.liveType)
         }
         normalizePlatformSelection()
-        platformOrder = stableOrder(previous: platformOrder, current: platforms.map(\.pluginId))
+        platformOrder = stableOrder(previous: platformOrder, current: orderedPlatforms.map(\.pluginId))
 
         feedsByPluginId = feedsByPluginId.filter { activePluginIds.contains($0.key) }
         failedPluginNames.removeAll()
@@ -176,6 +177,20 @@ public final class PluginHomeFeedModel {
 }
 
 private extension PluginHomeFeedModel {
+    /// 首页展示顺序：内置主推平台（stripchat → chaturbate → panda）优先，其余保持平台管理器顺序。
+    func orderedForHomeFeed(_ platforms: [LiveParseJSPlatform]) -> [LiveParseJSPlatform] {
+        let preferredOrder = ["stripchat", "chaturbate", "panda"]
+        var preferred: [LiveParseJSPlatform] = []
+        for pluginId in preferredOrder {
+            if let platform = platforms.first(where: { $0.pluginId == pluginId }) {
+                preferred.append(platform)
+            }
+        }
+        let preferredIds = Set(preferredOrder)
+        let rest = platforms.filter { !preferredIds.contains($0.pluginId) }
+        return preferred + rest
+    }
+
     func normalizePlatformSelection() {
         guard let selectedPluginId else { return }
         if !platformOptions.contains(where: { $0.pluginId == selectedPluginId }) {
