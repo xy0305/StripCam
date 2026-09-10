@@ -27,7 +27,17 @@ struct VerticalLiveControllerView: View {
     @State private var isFavoriteAnimating = false
     @State private var showStreamerInfo = false
     @State private var showQualityPanel = false
+    @State private var accountFollowing: Bool?
+    @State private var accountFollowBusy = false
     @ObservedObject private var recordingManager = LiveRecordingManager.shared
+
+    private var supportsAccountFollow: Bool {
+        PlatformCapability.supports(.accountFollow, for: viewModel.currentRoom.liveType)
+    }
+
+    private var accountFollowPluginId: String? {
+        SandboxPluginCatalog.platform(for: viewModel.currentRoom.liveType)?.pluginId
+    }
 
     /// 判断是否已收藏
     private var isFavorited: Bool {
@@ -88,6 +98,9 @@ struct VerticalLiveControllerView: View {
         .animation(.easeInOut(duration: 0.3), value: showQualityPanel)
         .environment(\.colorScheme, .dark)
         .opacity(model.config.isMaskShow || showQualityPanel ? 1 : 0)
+        .task(id: viewModel.currentRoom.roomId) {
+            await refreshAccountFollowState()
+        }
     }
 
     // MARK: - 顶部信息栏
@@ -149,6 +162,27 @@ struct VerticalLiveControllerView: View {
                                 .foregroundStyle(.white)
                                 .font(.caption)
                         }
+                    }
+
+                    if supportsAccountFollow {
+                        Button {
+                            Task { await toggleAccountFollow() }
+                        } label: {
+                            Group {
+                                if accountFollowBusy {
+                                    ProgressView()
+                                        .controlSize(.mini)
+                                        .tint(.white)
+                                } else {
+                                    Image(systemName: (accountFollowing == true) ? "star.fill" : "star")
+                                        .font(.system(size: 16))
+                                        .foregroundStyle((accountFollowing == true) ? .orange : .white)
+                                }
+                            }
+                            .frame(width: 28, height: 28)
+                        }
+                        .disabled(accountFollowBusy)
+                        .ksBorderlessButton()
                     }
 
                     // 收藏按钮
@@ -257,6 +291,61 @@ struct VerticalLiveControllerView: View {
             return String(format: "%.1f万", Double(value) / 10000.0)
         } else {
             return "\(value)"
+        }
+    }
+
+    private struct PluginFollowStatusDTO: Decodable {
+        let following: Bool?
+        let loggedIn: Bool?
+    }
+
+    @MainActor
+    private func refreshAccountFollowState() async {
+        guard supportsAccountFollow,
+              let pluginId = accountFollowPluginId,
+              !viewModel.currentRoom.roomId.isEmpty else {
+            accountFollowing = nil
+            return
+        }
+        let roomId = viewModel.currentRoom.roomId
+        let result: PluginFollowStatusDTO? = try? await LiveParsePlugins.shared.callDecodable(
+            pluginId: pluginId,
+            function: "isFollowing",
+            payload: ["roomId": roomId]
+        )
+        guard !Task.isCancelled, viewModel.currentRoom.roomId == roomId else { return }
+        accountFollowing = result?.following == true ? true : (result == nil ? nil : false)
+    }
+
+    @MainActor
+    private func toggleAccountFollow() async {
+        guard !accountFollowBusy,
+              let pluginId = accountFollowPluginId,
+              !viewModel.currentRoom.roomId.isEmpty else { return }
+        let currentlyFollowing = accountFollowing == true
+        let roomId = viewModel.currentRoom.roomId
+        accountFollowBusy = true
+        defer { accountFollowBusy = false }
+
+        do {
+            let result: PluginFollowStatusDTO = try await LiveParsePlugins.shared.callDecodable(
+                pluginId: pluginId,
+                function: "setFollowing",
+                payload: ["roomId": roomId, "follow": !currentlyFollowing]
+            )
+            guard viewModel.currentRoom.roomId == roomId else { return }
+            let following = result.following ?? !currentlyFollowing
+            accountFollowing = following
+            presentToast(ToastValue(
+                icon: Image(systemName: following ? "star.fill" : "star.slash"),
+                message: following ? "已关注 · 已同步到平台账号" : "已取消关注"
+            ))
+        } catch {
+            let message = (error as? LiveParsePluginError)?.errorDescription ?? error.localizedDescription
+            presentToast(ToastValue(
+                icon: Image(systemName: "xmark.circle.fill"),
+                message: message.contains("登录") ? message : "关注失败：\(message)"
+            ))
         }
     }
 

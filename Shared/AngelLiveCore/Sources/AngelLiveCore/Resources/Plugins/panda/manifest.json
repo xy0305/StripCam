@@ -1,6 +1,6 @@
 {
   "pluginId": "panda",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "apiVersion": 1,
   "displayName": "PandaTV",
   "platformDescription": "PandaTV 韩国直播平台",
@@ -21,7 +21,7 @@
     "supportsValidation": true
   },
   "loginFlow": {
-    "kind": "webview",
+    "kind": "cookie",
     "loginURL": "https://m.pandalive.co.kr/my",
     "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
     "cookieDomains": [

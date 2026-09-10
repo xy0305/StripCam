@@ -987,6 +987,18 @@ private extension JSRuntime {
                     sessionOverride: self.platformSessionOverride
                 ) {
                     requestHeaders["Cookie"] = cookieHeader
+                    // Django 站点 CSRF 约定：会话 cookie 含 csrftoken 时自动补
+                    // X-CSRFToken（如 chaturbate /follow/ 的 POST）。
+                    // 插件无法读取凭据字节，只能由宿主在注入 Cookie 的同时补齐。
+                    if Self.headerValue(named: "X-CSRFToken", in: requestHeaders) == nil,
+                       let csrf = LiveParsePlatformSessionVault.cookieValue(
+                           named: "csrftoken",
+                           for: envelope.platformId,
+                           sessionOverride: self.platformSessionOverride
+                       ),
+                       !csrf.isEmpty {
+                        requestHeaders["X-CSRFToken"] = csrf
+                    }
                 }
             }
 

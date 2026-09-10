@@ -7,6 +7,8 @@
     var PLUGIN_ID = "chaturbate";
     var LIVE_TYPE = "chaturbate";
     var BASE_URL = "https://www.chaturbate.com";
+    // follow / is_following 走无 www 主机，避免 www↔apex 跨域重定向把托管 Cookie 剥掉。
+    var AUTH_URL = "https://chaturbate.com";
     var PLAYBACK_UA = "libmpv";
     var WEB_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1";
 
@@ -71,6 +73,106 @@
         var data = parseJSON(res && res.bodyText, null);
         if (data === null || data === undefined) throwErr("INVALID_RESPONSE", "chaturbate json response invalid", { url: url });
         return data;
+    }
+
+    // ---- 账号关注（需登录 Cookie，同步到 chaturbate.com 账号）----
+
+    async function requestRaw(url, referer, method, body, extraHeaders) {
+        return await Host.http.request({
+            platformId: PLUGIN_ID,
+            authMode: "platform_cookie",
+            request: {
+                url: url,
+                method: method || "GET",
+                headers: Object.assign({}, headers(referer), extraHeaders || {}),
+                body: body || null,
+                timeout: 20
+            }
+        });
+    }
+
+    // 登录探测：已登录返回 {online,total} JSON；匿名 302 到登录页（HTML）。
+    async function checkLoggedIn() {
+        try {
+            var res = await requestRaw(
+                AUTH_URL + "/follow/api/online_followed_rooms/",
+                AUTH_URL + "/followed-cams/",
+                "GET", null,
+                { "X-Requested-With": "XMLHttpRequest" }
+            );
+            var data = parseJSON(res && res.bodyText, null);
+            return !!(data && typeof data === "object" && (data.online !== undefined || data.total !== undefined));
+        } catch (e) {
+            return false;
+        }
+    }
+
+    async function fetchFollowing(offline, page, size) {
+        if (!(await checkLoggedIn())) {
+            throwErr("AUTH_REQUIRED", "需要登录 Chaturbate 账号（设置 → 平台账号登录）", {});
+        }
+        var params = {
+            enable_recommendations: "false",
+            limit: String(size || 24),
+            offset: String((page - 1) * (size || 24)),
+            follow: "true"
+        };
+        if (offline) params.offline = "true";
+        var data = await requestJSON(
+            AUTH_URL + "/api/ts/roomlist/room-list/?" + form(params),
+            AUTH_URL + "/followed-cams/",
+            "GET", null,
+            { "X-Requested-With": "XMLHttpRequest" }
+        );
+        var list = Array.isArray(data && data.rooms) ? data.rooms : [];
+        // 匿名请求会静默忽略 follow 过滤并返回精选列表（is_following 全 false），
+        // 这里只保留账号真实关注的主播。
+        return list.filter(function (r) { return !!r && r.is_following === true; });
+    }
+
+    async function isFollowing(username) {
+        var res = await requestRaw(
+            AUTH_URL + "/follow/is_following/" + encodeURIComponent(username) + "/",
+            AUTH_URL + "/" + encodeURIComponent(username),
+            "GET", null,
+            { "X-Requested-With": "XMLHttpRequest" }
+        );
+        var status = int(res && (res.status || res.statusCode), 0);
+        if (status === 401 || status === 403) {
+            return { following: false, loggedIn: false };
+        }
+        if (status < 200 || status >= 300) {
+            throwErr("UPSTREAM", "chaturbate is_following failed", { status: status });
+        }
+        var data = parseJSON(res && res.bodyText, null) || {};
+        return { following: data.following === true, loggedIn: true };
+    }
+
+    async function setFollowing(username, follow) {
+        // 宿主注入 Cookie + X-CSRFToken（来自 csrftoken cookie）。
+        var path = follow ? "follow" : "unfollow";
+        var res = await requestRaw(
+            AUTH_URL + "/follow/" + path + "/" + encodeURIComponent(username) + "/?redirect=error",
+            AUTH_URL + "/" + encodeURIComponent(username),
+            "POST", "location=",
+            {
+                "Content-Type": "application/x-www-form-urlencoded",
+                "X-Requested-With": "XMLHttpRequest"
+            }
+        );
+        var status = int(res && (res.status || res.statusCode), 0);
+        if (status === 401 || status === 403) {
+            throwErr("AUTH_REQUIRED", "关注失败：需要登录 Chaturbate 账号（设置 → 平台账号登录）", { status: status });
+        }
+        if (status < 200 || status >= 300) {
+            throwErr("UPSTREAM", "chaturbate follow request failed", { status: status });
+        }
+        var data = parseJSON(res && res.bodyText, null);
+        if (data && typeof data.following === "boolean") {
+            return { following: data.following, loggedIn: true };
+        }
+        var checked = await isFollowing(username);
+        return { following: checked.following, loggedIn: true };
     }
 
     // ---- 分类 ----
@@ -327,6 +429,24 @@
         };
     }
 
+    function followingSection(id, title, rooms) {
+        var items = [];
+        for (var i = 0; i < rooms.length; i++) {
+            var room = toRoom(rooms[i]);
+            if (!room.userName) continue;
+            items.push({ id: id + "-" + room.roomId, room: room, reason: null });
+        }
+        return {
+            id: id,
+            kind: "rooms",
+            title: title,
+            subtitle: null,
+            personalized: true,
+            items: items,
+            seeAllTarget: { type: "category", category: { id: "following", parentId: "account", title: title, icon: "" } }
+        };
+    }
+
     // ---- 插件导出 ----
 
     globalThis.LiveParsePlugin = {
@@ -337,6 +457,12 @@
             var dynamic = [];
             try { dynamic = await fetchTopHashtagCategories(); } catch (e) { dynamic = BASE_CATEGORIES; }
 
+            groups.push({
+                id: "account", title: "账号", icon: "", subList: [
+                    { id: "following", parentId: "account", title: "⭐ 我的关注", icon: "" },
+                    { id: "following-offline", parentId: "account", title: "💤 关注·离线", icon: "" }
+                ]
+            });
             groups.push({ id: "recommended", title: "推荐", icon: "", subList: [{ id: "featured", parentId: "recommended", title: "精选直播", icon: "" }] });
             groups.push({
                 id: "type", title: "类型", icon: "", subList: dynamic.map(function (c) {
@@ -355,12 +481,31 @@
             payload = payload || {};
             var id = payload.id || "featured";
             var p = Number(payload.page || 1);
+            if (id === "following" || id === "following-offline") {
+                var list = await fetchFollowing(id === "following-offline", page(p), pageSize(payload.pageSize, 24, 90));
+                return list.map(toRoom).filter(function (r) { return !!r.userName; });
+            }
             var data = await requestJSON(
                 roomListURL({ page: p, pageSize: payload.pageSize }, id),
                 categoryReferer(id), "GET", null, { "X-Requested-With": "XMLHttpRequest" }
             );
             var list = Array.isArray(data && data.rooms) ? data.rooms : [];
             return list.map(toRoom).filter(function (r) { return !!r.userName; });
+        },
+
+        isFollowing: async function (payload) {
+            payload = payload || {};
+            var username = str(payload.roomId || payload.userId || payload.username || "").trim();
+            if (!username) throwErr("INVALID_ARGS", "roomId is required", {});
+            return await isFollowing(username);
+        },
+
+        setFollowing: async function (payload) {
+            payload = payload || {};
+            var username = str(payload.roomId || payload.userId || payload.username || "").trim();
+            if (!username) throwErr("INVALID_ARGS", "roomId is required", {});
+            var follow = payload.follow === true || payload.follow === "true" || payload.follow === 1;
+            return await setFollowing(username, follow);
         },
 
         getPlayback: async function (payload) {
@@ -408,6 +553,16 @@
         },
 
         getHomeFeed: async function () {
+            var sections = [];
+
+            // 登录时置顶「我的关注」（匿名时静默跳过）
+            try {
+                var followingRooms = await fetchFollowing(false, 1, 24);
+                if (followingRooms.length) {
+                    sections.push(await followingSection("following", "⭐ 我的关注", followingRooms));
+                }
+            } catch (e) {}
+
             var recommended = await section("recommended", "✨ 精选直播", "featured", 24);
             var banners = [];
             for (var i = 0; i < Math.min(5, recommended.items.length); i++) {
@@ -422,7 +577,7 @@
                 });
             }
 
-            var sections = [recommended];
+            sections.push(recommended);
             var extras = [
                 ["female", "👩 女主播", "female-cams"],
                 ["couple", "💑 情侣", "couple-cams"],

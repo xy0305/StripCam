@@ -13,6 +13,7 @@ import AngelLiveCore
 private enum PlatformLoginMethod {
     case qrCode
     case web
+    case manualCookie
 }
 
 struct PlatformLoginSheet: View {
@@ -27,7 +28,12 @@ struct PlatformLoginSheet: View {
         let prefersQRCode = entry.loginChallenge?.prefers(.iOS) == true
         // iPhone 上默认展示自身二维码并不实用，仍以网页登录为首选；iPad 才遵循 preferOn。
         let canPreferQRCodeHere = UIDevice.current.userInterfaceIdiom != .phone
-        _method = State(initialValue: !isLoggedIn && supportsQRCode && prefersQRCode && canPreferQRCodeHere ? .qrCode : .web)
+        // manifest.loginFlow.kind == "cookie" 的平台（如 PandaTV）默认手动填入 Cookie。
+        let prefersManualCookie = (entry.loginFlow.kind ?? "webview").lowercased() == "cookie"
+        // 已登录时走网页状态页（可再切手动 Cookie）；未登录的 cookie 型平台直接填 Cookie。
+        _method = State(initialValue: prefersManualCookie && !isLoggedIn
+            ? .manualCookie
+            : (!isLoggedIn && supportsQRCode && prefersQRCode && canPreferQRCodeHere ? .qrCode : .web))
     }
 
     var body: some View {
@@ -42,7 +48,13 @@ struct PlatformLoginSheet: View {
                 pluginId: entry.pluginId,
                 onUseQRCode: entry.loginChallenge?.isSupportedByCurrentHost == true
                     ? { method = .qrCode }
-                    : nil
+                    : nil,
+                onUseManualCookie: { method = .manualCookie }
+            )
+        case .manualCookie:
+            PlatformLoginManualCookieSheet(
+                entry: entry,
+                onUseWebLogin: { method = .web }
             )
         }
     }

@@ -13,10 +13,12 @@ import AngelLiveCore
 struct PlatformLoginWebSheet: View {
     let pluginId: String
     let onUseQRCode: (() -> Void)?
+    let onUseManualCookie: (() -> Void)?
 
-    init(pluginId: String, onUseQRCode: (() -> Void)? = nil) {
+    init(pluginId: String, onUseQRCode: (() -> Void)? = nil, onUseManualCookie: (() -> Void)? = nil) {
         self.pluginId = pluginId
         self.onUseQRCode = onUseQRCode
+        self.onUseManualCookie = onUseManualCookie
     }
 
     @Environment(\.dismiss) private var dismiss
@@ -132,6 +134,9 @@ struct PlatformLoginWebSheet: View {
                 if let onUseQRCode {
                     Button("扫码重新登录") { onUseQRCode() }
                 }
+                if let onUseManualCookie {
+                    Button("手动填入 Cookie") { onUseManualCookie() }
+                }
                 Button("重新登录") {
                     Task { await prepareRelogin(entry: entry) }
                 }
@@ -211,6 +216,17 @@ struct PlatformLoginWebSheet: View {
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
+                }
+
+                if let onUseManualCookie, !isLoggedIn {
+                    Button {
+                        onUseManualCookie()
+                    } label: {
+                        Label("改用手动填入 Cookie", systemImage: "doc.on.clipboard")
+                            .font(.footnote)
+                    }
+                    .buttonStyle(.bordered)
+                    .frame(maxWidth: .infinity)
                 }
             }
             .padding(16)

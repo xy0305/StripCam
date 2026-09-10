@@ -54,6 +54,9 @@ struct StreamerInfoView: View {
     @Environment(\.presentToast) private var presentToast
     @State private var isFavoriteAnimating = false
     @State private var showStreamerInfo = false
+    // 账号关注（同步到平台账号，如 Chaturbate）
+    @State private var accountFollowing: Bool?
+    @State private var accountFollowBusy = false
 
     /// 判断是否已收藏
     private var isFavorited: Bool {
@@ -63,6 +66,11 @@ struct StreamerInfoView: View {
             }
             return room.liveType == viewModel.currentRoom.liveType && room.roomId == viewModel.currentRoom.roomId
         })
+    }
+
+    /// 当前平台插件是否支持账号关注
+    private var supportsAccountFollow: Bool {
+        PlatformCapability.supports(.accountFollow, for: viewModel.currentRoom.liveType)
     }
 
     var body: some View {
@@ -120,6 +128,31 @@ struct StreamerInfoView: View {
 
                 Spacer()
 
+                // 账号关注（同步到平台账号，如 Chaturbate）
+                if supportsAccountFollow {
+                    Button {
+                        Task { await toggleAccountFollow() }
+                    } label: {
+                        Group {
+                            if accountFollowBusy {
+                                ProgressView()
+                                    .controlSize(.small)
+                                    .tint(Color(white: 0.85))
+                            } else {
+                                Image(systemName: (accountFollowing == true) ? "star.fill" : "star")
+                                    .font(.title3)
+                                    .foregroundStyle((accountFollowing == true) ? Color.orange : Color(white: 0.7))
+                            }
+                        }
+                        .frame(width: 44, height: 44)
+                        .background(
+                            Circle()
+                                .fill(.white.opacity(0.1))
+                        )
+                    }
+                    .disabled(accountFollowBusy)
+                }
+
                 // 收藏按钮
                 Button(action: {
                     Task {
@@ -150,6 +183,9 @@ struct StreamerInfoView: View {
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
         }
+        .task(id: viewModel.currentRoom.roomId) {
+            await refreshAccountFollowState()
+        }
     }
 
     /// 头像兜底（URL 为空 / 加载失败）
@@ -163,6 +199,72 @@ struct StreamerInfoView: View {
                     .foregroundStyle(.white.opacity(0.8))
                     .padding(6)
             )
+    }
+
+    // MARK: - 账号关注（同步到平台账号）
+
+    private struct PluginFollowStatusDTO: Decodable {
+        let following: Bool?
+        let loggedIn: Bool?
+    }
+
+    private var accountFollowPluginId: String? {
+        SandboxPluginCatalog.platform(for: viewModel.currentRoom.liveType)?.pluginId
+    }
+
+    @MainActor
+    private func refreshAccountFollowState() async {
+        guard supportsAccountFollow,
+              let pluginId = accountFollowPluginId,
+              !viewModel.currentRoom.roomId.isEmpty else {
+            accountFollowing = nil
+            return
+        }
+        let roomId = viewModel.currentRoom.roomId
+        let result: PluginFollowStatusDTO? = try? await LiveParsePlugins.shared.callDecodable(
+            pluginId: pluginId,
+            function: "isFollowing",
+            payload: ["roomId": roomId]
+        )
+        guard !Task.isCancelled, viewModel.currentRoom.roomId == roomId else { return }
+        if let result {
+            accountFollowing = result.following == true
+        } else {
+            accountFollowing = nil
+        }
+    }
+
+    @MainActor
+    private func toggleAccountFollow() async {
+        guard !accountFollowBusy,
+              let pluginId = accountFollowPluginId,
+              !viewModel.currentRoom.roomId.isEmpty else { return }
+        let currentlyFollowing = accountFollowing == true
+        let roomId = viewModel.currentRoom.roomId
+        accountFollowBusy = true
+        defer { accountFollowBusy = false }
+
+        do {
+            let result: PluginFollowStatusDTO = try await LiveParsePlugins.shared.callDecodable(
+                pluginId: pluginId,
+                function: "setFollowing",
+                payload: ["roomId": roomId, "follow": !currentlyFollowing]
+            )
+            guard viewModel.currentRoom.roomId == roomId else { return }
+            let following = result.following ?? !currentlyFollowing
+            accountFollowing = following
+            presentToast(ToastValue(
+                icon: Image(systemName: following ? "star.fill" : "star.slash"),
+                message: following ? "已关注 · 已同步到平台账号" : "已取消关注"
+            ))
+        } catch {
+            let message = (error as? LiveParsePluginError)?.errorDescription ?? error.localizedDescription
+            let hint = message.contains("登录") ? message : "关注失败：\(message)"
+            presentToast(ToastValue(
+                icon: Image(systemName: "xmark.circle.fill"),
+                message: hint
+            ))
+        }
     }
 
     // MARK: - 收藏操作

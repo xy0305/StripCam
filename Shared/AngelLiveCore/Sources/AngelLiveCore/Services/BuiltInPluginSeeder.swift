@@ -27,8 +27,8 @@ public enum BuiltInPluginSeeder {
     /// 内置插件清单：版本号必须 >= 线上订阅源版本，避免被旧版覆盖回退。
     public static let bundledPlugins: [BundledPlugin] = [
         BundledPlugin(pluginId: "stripchat", version: "1.0.2", entry: "stripchat.js"),
-        BundledPlugin(pluginId: "chaturbate", version: "1.0.0", entry: "index.js"),
-        BundledPlugin(pluginId: "panda", version: "2.0.3", entry: "index.js")
+        BundledPlugin(pluginId: "chaturbate", version: "1.1.0", entry: "index.js"),
+        BundledPlugin(pluginId: "panda", version: "2.0.4", entry: "index.js")
     ]
 
     /// 兼容旧调用：主插件 = stripchat。

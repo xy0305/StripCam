@@ -94,7 +94,10 @@ struct PlatformAccountLoginView: View {
     }
 
     private func loginMethodDescription(for entry: LoginPlatformEntry) -> String {
-        entry.loginChallenge?.isSupportedByCurrentHost == true ? "支持扫码或网页登录" : "网页登录"
+        if (entry.loginFlow.kind ?? "webview").lowercased() == "cookie" {
+            return "手动填入 Cookie 登录"
+        }
+        return entry.loginChallenge?.isSupportedByCurrentHost == true ? "支持扫码或网页登录" : "网页登录"
     }
 
     @ViewBuilder

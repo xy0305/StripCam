@@ -19,6 +19,7 @@ public enum PlatformFeature: String, CaseIterable, Sendable {
     case shareResolve  // 分享码解析
     case danmaku       // 弹幕
     case homeFeed      // 首页内容
+    case accountFollow // 账号关注（同步到平台账号的关注列表）
 
     public var displayName: String {
         switch self {
@@ -31,6 +32,7 @@ public enum PlatformFeature: String, CaseIterable, Sendable {
         case .shareResolve: return "分享码解析"
         case .danmaku:      return "弹幕"
         case .homeFeed:     return "首页内容"
+        case .accountFollow: return "账号关注"
         }
     }
 
@@ -45,6 +47,7 @@ public enum PlatformFeature: String, CaseIterable, Sendable {
         case .shareResolve: return "link"
         case .danmaku:      return "text.bubble"
         case .homeFeed:     return "house"
+        case .accountFollow: return "star"
         }
     }
 }
@@ -115,7 +118,8 @@ public enum PlatformCapability {
         (.liveState, ["getLiveState"]),
         (.shareResolve, ["resolveShare", "getRoomInfoFromShareCode"]),
         (.danmaku, ["getDanmaku", "getDanmukuArgs"]),
-        (.homeFeed, ["getHomeFeed"])
+        (.homeFeed, ["getHomeFeed"]),
+        (.accountFollow, ["setFollowing", "followRoom", "getFollowing"])
     ]
 
     public static func features(for liveType: LiveType) -> [(PlatformFeature, FeatureStatus)] {
