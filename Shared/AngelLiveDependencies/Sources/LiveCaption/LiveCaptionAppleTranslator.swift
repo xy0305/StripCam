@@ -120,7 +120,8 @@ public final class LiveCaptionTranslationBridge: LiveCaptionTranslating, @unchec
     /// `TranslationSession` never crosses an isolation boundary.
     @MainActor
     public func serve(_ session: TranslationSession) async {
-        try? await session.prepareTranslation()
+        let handle = SessionHandle(value: session)
+        try? await Self.prepare(handle)
         let s: AsyncStream<Request>? = {
             lock.lock(); defer { lock.unlock() }
             return stream
@@ -129,13 +130,28 @@ public final class LiveCaptionTranslationBridge: LiveCaptionTranslating, @unchec
         attached = true
         for await req in s {
             do {
-                let out = try await session.translate(req.text).targetText
+                let out = try await Self.translate(handle, req.text)
                 req.reply.resume(returning: out)
             } catch {
                 req.reply.resume(throwing: error)
             }
         }
         attached = false
+    }
+
+    /// `TranslationSession` is not Sendable; SwiftUI hands it to us on the MainActor while its async
+    /// methods are nonisolated. Hop through a nonisolated helper with an unchecked box so the session
+    /// is only ever used by this single serve loop.
+    private struct SessionHandle: @unchecked Sendable {
+        let value: TranslationSession
+    }
+
+    private nonisolated static func prepare(_ handle: SessionHandle) async throws {
+        try await handle.value.prepareTranslation()
+    }
+
+    private nonisolated static func translate(_ handle: SessionHandle, _ text: String) async throws -> String {
+        try await handle.value.translate(text).targetText
     }
 
     public func prepare() async throws {
