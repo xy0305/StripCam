@@ -74,6 +74,13 @@ struct MoreActionsButton: View {
             }
             */
 
+            Button(viewModel.liveCaption.showsCaptions ? "关闭实时翻译" : "实时翻译") {
+                viewModel.liveCaption.setEnabled(
+                    !viewModel.liveCaption.showsCaptions,
+                    viewModel: viewModel
+                )
+            }
+
             Button("清屏") {
                 onClearChat()
             }

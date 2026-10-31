@@ -451,6 +451,21 @@ struct UnifiedPlayerControlOverlay: View {
                 Spacer()
                 HStack(spacing: 16) {
                     Button {
+                        viewModel.liveCaption.setEnabled(
+                            !viewModel.liveCaption.showsCaptions,
+                            viewModel: viewModel
+                        )
+                    } label: {
+                        Image(systemName: viewModel.liveCaption.showsCaptions ? "character.bubble.fill" : "character.bubble")
+                            .frame(width: 30, height: 30)
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundStyle(.white)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("实时翻译")
+                    .accessibilityValue(viewModel.liveCaption.showsCaptions ? "开" : "关")
+
+                    Button {
                         viewModel.danmuSettings.showDanmu.toggle()
                     } label: {
                         Image(systemName: viewModel.danmuSettings.showDanmu ? "captions.bubble.fill" : "captions.bubble")
