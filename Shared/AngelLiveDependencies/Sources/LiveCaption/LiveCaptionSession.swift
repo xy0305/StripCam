@@ -6,6 +6,10 @@ import Observation
 @MainActor
 @Observable
 public final class LiveCaptionSession {
+    /// Mints a brand-new play URL for the current room/quality (re-runs the plugin).
+    /// Required for single-use-token platforms (Chaturbate) and used to recover from expired sessions.
+    public typealias SourceRefresher = @Sendable () async -> LiveCaptionSource?
+
     public private(set) var phase: LiveCaptionPhase = .idle
     public private(set) var latest: LiveCaptionLine?
     public private(set) var statusMessage: String = ""
@@ -22,6 +26,10 @@ public final class LiveCaptionSession {
     @ObservationIgnored private var generation = 0
     @ObservationIgnored private var buffered: [Float] = []
     @ObservationIgnored private var bufferStart: Double = 0
+    @ObservationIgnored private var refresher: SourceRefresher?
+    @ObservationIgnored private var activeSource: LiveCaptionSource?
+    @ObservationIgnored private var recoverTask: Task<Void, Never>?
+    @ObservationIgnored private var recoveries: [Date] = []
 
     /// Cross-isolation pacing state read by the FFmpeg reader thread.
     @ObservationIgnored private let pace = PaceClock()
@@ -35,10 +43,13 @@ public final class LiveCaptionSession {
         phase == .running || phase == .starting
     }
 
-    public func start(source: LiveCaptionSource) async {
+    public func start(source: LiveCaptionSource, refresh: SourceRefresher? = nil) async {
         if isActive {
             await stop(clearText: false)
         }
+        refresher = refresh
+        activeSource = source
+        recoveries.removeAll()
         phase = .starting
         lastError = nil
         statusMessage = "正在启动实时翻译…"
@@ -93,19 +104,17 @@ public final class LiveCaptionSession {
             }
             reader.onError = { [weak self] message in
                 Task { @MainActor in
-                    self?.lastError = message
-                    self?.statusMessage = message
+                    self?.readerFailed(message, generation: gen)
                 }
             }
             reader.shouldRun = {
                 pace.shouldRun()
             }
 
-            var headers = source.headers
-            if headers["User-Agent"] == nil && headers["user-agent"] == nil {
-                headers["User-Agent"] = source.userAgent
-            }
-            reader.start(.init(url: source.url, headers: headers), generation: gen)
+            statusMessage = "正在连接直播音频…"
+            let readerSource = try await Self.resolveReaderSource(source, refresh: refresh)
+            guard gen == generation else { return }
+            reader.start(readerSource, generation: gen)
             processTask = Task { [weak self] in
                 await self?.consume(stream, generation: gen)
             }
@@ -133,12 +142,113 @@ public final class LiveCaptionSession {
         pace.setHold(on)
     }
 
-    public func retarget(source: LiveCaptionSource) async {
+    public func retarget(source: LiveCaptionSource, refresh: SourceRefresher? = nil) async {
         guard isActive || phase == .failed else { return }
-        await start(source: source)
+        await start(source: source, refresh: refresh ?? refresher)
+    }
+
+    // MARK: - Audio source resolution (live HLS)
+
+    /// Reader gave up after its own retries (e.g. Chaturbate session expired → 403).
+    /// Re-mint the play URL at the live edge instead of hammering the dead one. Bounded so a room
+    /// that went private/offline does not loop forever.
+    private func readerFailed(_ message: String, generation gen: Int) {
+        guard gen == generation, phase == .running else { return }
+        let now = Date()
+        recoveries = recoveries.filter { now.timeIntervalSince($0) < 120 }
+        guard let source = activeSource, recoveries.count < 4,
+              source.requiresFreshPlaylist || refresher != nil else {
+            lastError = message
+            statusMessage = "直播音频读取失败：\(message)"
+            return
+        }
+        recoveries.append(now)
+        statusMessage = "直播音频中断，正在重连…"
+        recoverTask?.cancel()
+        let refresh = refresher
+        recoverTask = Task { [weak self] in
+            do {
+                let fresh = try await Self.resolveReaderSource(source, refresh: refresh, forceRefresh: true)
+                guard let self, !Task.isCancelled, gen == self.generation, self.phase == .running else { return }
+                self.pace.reset(maxLead: self.maxLeadSeconds)
+                self.reader.start(fresh, generation: gen)
+                self.statusMessage = "实时翻译运行中"
+            } catch {
+                guard let self, gen == self.generation else { return }
+                self.lastError = error.localizedDescription
+                self.statusMessage = error.localizedDescription
+            }
+        }
+    }
+
+    nonisolated static func readerHeaders(_ source: LiveCaptionSource) -> [String: String] {
+        var headers = source.headers
+        if headers["User-Agent"] == nil && headers["user-agent"] == nil {
+            headers["User-Agent"] = source.userAgent
+        }
+        return headers
+    }
+
+    /// Turn the player's play URL into what the audio reader should open:
+    /// - single-use-token platforms (Chaturbate) always get a freshly minted URL, never the player's;
+    /// - HLS masters are resolved here to the audio-only rendition / lowest variant so FFmpeg does not
+    ///   probe every video variant (measured on Chaturbate: ~5 s vs ~20–27 s to first audio).
+    nonisolated static func resolveReaderSource(
+        _ source: LiveCaptionSource,
+        refresh: SourceRefresher?,
+        forceRefresh: Bool = false
+    ) async throws -> LiveCaptionAudioReader.Source {
+        var candidate = source
+        if source.requiresFreshPlaylist || forceRefresh {
+            if let refresh, let fresh = await refresh() {
+                candidate = fresh
+            } else if source.requiresFreshPlaylist {
+                throw LiveCaptionEngineError.unavailable("无法获取字幕音频地址（直播可能已结束或转私密）")
+            }
+        }
+
+        for attempt in 0 ..< 2 {
+            let headers = readerHeaders(candidate)
+            guard LiveCaptionHLS.looksLikeHLS(candidate.url) else {
+                return .init(url: candidate.url, headers: headers)
+            }
+            switch await fetchPlaylist(candidate.url, headers: headers) {
+            case .master(let audioURL):
+                return .init(url: audioURL, headers: headers)
+            case .media:
+                return .init(url: candidate.url, headers: headers)
+            case .invalid(let reason):
+                if attempt == 0, let refresh, let fresh = await refresh() {
+                    candidate = fresh
+                    continue
+                }
+                if candidate.requiresFreshPlaylist {
+                    throw LiveCaptionEngineError.unavailable("字幕音频地址不可用：\(reason)")
+                }
+                // Unknown platform / transient network: let FFmpeg try the URL itself (old behavior).
+                return .init(url: candidate.url, headers: headers)
+            }
+        }
+        return .init(url: candidate.url, headers: readerHeaders(candidate))
+    }
+
+    nonisolated static func fetchPlaylist(_ url: URL, headers: [String: String]) async -> LiveCaptionHLS.Playlist {
+        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 8)
+        for (k, v) in headers { request.setValue(v, forHTTPHeaderField: k) }
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            let status = (response as? HTTPURLResponse)?.statusCode ?? 200
+            guard (200 ..< 300).contains(status) else { return .invalid("HTTP \(status)") }
+            let base = response.url ?? url
+            return LiveCaptionHLS.classify(String(decoding: data, as: UTF8.self), baseURL: base)
+        } catch {
+            return .invalid(error.localizedDescription)
+        }
     }
 
     private func tearDownWorkers() async {
+        recoverTask?.cancel()
+        recoverTask = nil
         processTask?.cancel()
         processTask = nil
         pcmContinuation?.finish()

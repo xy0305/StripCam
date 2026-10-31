@@ -38,11 +38,20 @@ public struct LiveCaptionSource: Sendable, Equatable {
     public var url: URL
     public var headers: [String: String]
     public var userAgent: String
+    /// Play URL token is single-use (Chaturbate): the caption reader must mint its own URL
+    /// via the refresher instead of re-opening the player's URL.
+    public var requiresFreshPlaylist: Bool
 
-    public init(url: URL, headers: [String: String] = [:], userAgent: String = "libmpv") {
+    public init(
+        url: URL,
+        headers: [String: String] = [:],
+        userAgent: String = "libmpv",
+        requiresFreshPlaylist: Bool = false
+    ) {
         self.url = url
         self.headers = headers
         self.userAgent = userAgent
+        self.requiresFreshPlaylist = requiresFreshPlaylist
     }
 }
 

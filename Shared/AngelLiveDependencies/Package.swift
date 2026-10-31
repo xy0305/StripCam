@@ -78,9 +78,10 @@ if let ksPlayerDependency = resolveKSPlayerDependency() {
     targetDependencies.append(ksPlayerDependency.target)
     // Live EN→ZH captions demux the play URL with the same FFmpegKit KSPlayer already uses.
     // Declare the Libav products so AngelLiveDependencies can import them (transitive modules are not visible).
-    // Keep the pin aligned with Package.resolved (TracyPlayer fork used by this workspace).
+    // Must be the exact same package KSPlayer 2.3.4 pulls (kingslay/FFmpegKit, from 6.1.3) so SPM
+    // resolves a single FFmpegKit; the TracyPlayer fork is not public and broke CI resolution.
     packageDependencies.append(
-        .package(url: "https://github.com/TracyPlayer/FFmpegKit", exact: "8.1.1")
+        .package(url: "https://github.com/kingslay/FFmpegKit.git", from: "6.1.3")
     )
     targetDependencies += [
         .product(name: "Libavformat", package: "FFmpegKit"),

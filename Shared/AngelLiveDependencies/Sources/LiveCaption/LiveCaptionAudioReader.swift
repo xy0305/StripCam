@@ -148,7 +148,8 @@ public final class LiveCaptionAudioReader: @unchecked Sendable {
         if let ua = headers.removeValue(forKey: "User-Agent") ?? headers.removeValue(forKey: "user-agent") {
             av_dict_set(&opts, "user_agent", ua, 0)
         }
-        if let ref = headers["Referer"] ?? headers["referer"] {
+        // Pass Referer only once (option), not again inside the raw `headers` blob.
+        if let ref = headers.removeValue(forKey: "Referer") ?? headers.removeValue(forKey: "referer") {
             av_dict_set(&opts, "referer", ref, 0)
         }
         if !headers.isEmpty {
@@ -160,6 +161,11 @@ public final class LiveCaptionAudioReader: @unchecked Sendable {
         av_dict_set(&opts, "rw_timeout", "15000000", 0)
         av_dict_set(&opts, "extension_picky", "0", 0)
         av_dict_set(&opts, "allowed_extensions", "ALL", 0)
+        // Live HLS (Chaturbate LL-HLS fMP4 audio chunklist): start near the live edge like the player,
+        // retry a missing live segment instead of failing the whole session, never seek on live.
+        av_dict_set(&opts, "live_start_index", "-3", 0)
+        av_dict_set(&opts, "seg_max_retry", "3", 0)
+        av_dict_set(&opts, "http_persistent", "1", 0)
         av_dict_set(&opts, "probesize", "2000000", 0)
         av_dict_set(&opts, "analyzeduration", "2000000", 0)
 
