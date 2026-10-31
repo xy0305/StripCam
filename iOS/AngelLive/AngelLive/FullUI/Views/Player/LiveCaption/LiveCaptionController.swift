@@ -15,7 +15,7 @@ final class LiveCaptionController {
     private(set) var overlayLine: LiveCaptionLine?
     private(set) var overlayStatus = ""
 
-    private var syncTask: Task<Void, Never>?
+    @ObservationIgnored nonisolated(unsafe) private var syncTask: Task<Void, Never>?
     private var lastSource: LiveCaptionSource?
 
     init() {
