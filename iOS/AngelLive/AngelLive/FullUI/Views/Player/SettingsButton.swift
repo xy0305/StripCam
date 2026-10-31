@@ -59,6 +59,13 @@ struct SettingsButton: View {
         // 用 .primary 覆盖默认主题色，dialog/sheet 按钮文字按浅/深色模式呈黑/白
         .tint(.primary)
         .confirmationDialog("播放器设置", isPresented: $showActionSheet, titleVisibility: .visible) {
+            Button(viewModel.liveCaption.showsCaptions ? "关闭实时翻译" : "开启实时翻译") {
+                viewModel.liveCaption.setEnabled(
+                    !viewModel.liveCaption.showsCaptions,
+                    viewModel: viewModel
+                )
+            }
+
             if viewModel.supportsDanmu {
                 Button("弹幕设置") {
                     showDanmakuSettings = true

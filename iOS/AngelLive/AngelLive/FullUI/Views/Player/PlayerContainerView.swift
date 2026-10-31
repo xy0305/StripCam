@@ -198,12 +198,15 @@ struct PlayerContentView: View {
         }
         .onAppear {
             // KSPlayer 路径启动统一恢复协调器的 1Hz 采样;起播超时/stall/finish 全由它接管。
-            guard useKSPlayer else { return }
-            viewModel.recoveryCoordinator.start()
+            if useKSPlayer {
+                viewModel.recoveryCoordinator.start()
+            }
+            viewModel.liveCaption.resumeIfNeeded(viewModel: viewModel)
         }
         .onDisappear {
             // 停掉协调器采样(stop 幂等,未启动也安全)。
             viewModel.recoveryCoordinator.stop()
+            viewModel.liveCaption.shutdown()
             // 退出播放页时取消回前台 watchdog,避免悬挂任务持有 player。
             foregroundDiagnosticTask?.cancel()
             foregroundDiagnosticTask = nil
@@ -356,6 +359,15 @@ struct PlayerContentView: View {
                     )
                     #endif
 
+                    if viewModel.liveCaption.showsCaptions {
+                        LiveCaptionOverlay(
+                            line: viewModel.liveCaption.overlayLine,
+                            statusMessage: viewModel.liveCaption.overlayStatus,
+                            reduceMotion: accessibilityReduceMotion
+                        )
+                        LiveCaptionTranslationHost(bridge: viewModel.liveCaption.translationBridge)
+                    }
+
                     #if canImport(KSPlayer)
                     if useKSPlayer && showVideoSetting {
                         VideoSettingHUDView(model: playerModel, isShowing: $showVideoSetting)
@@ -373,6 +385,9 @@ struct PlayerContentView: View {
                     #endif
                 }
                 .animation(.easeInOut(duration: 0.3), value: showVideoSetting)
+                .onChange(of: shouldShowLoading) { _, busy in
+                    viewModel.liveCaption.handlePlaybackBusy(busy)
+                }
                 .task(id: "\(playURL.absoluteString)_\(viewModel.selectedPlayerKernel.rawValue)") {
                     Logger.debug(
                         "[PlayerFlow] player task start, kernel=\(viewModel.selectedPlayerKernel.rawValue), url=\(compactURL(playURL))",
@@ -470,6 +485,7 @@ struct PlayerContentView: View {
                 }
                 .onChange(of: playURL) { _ in
                     Logger.debug("[PlayerFlow] playURL changed -> \(compactURL(playURL)), reset detect states", category: .player)
+                    viewModel.liveCaption.handlePlayURLChanged(viewModel: viewModel)
                     // 切换视频时重置为默认 16:9 比例并重新检测
                     videoAspectRatio = 16.0 / 9.0
                     isVideoPortrait = false

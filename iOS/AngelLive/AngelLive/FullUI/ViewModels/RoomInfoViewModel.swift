@@ -144,6 +144,7 @@ final class RoomInfoViewModel {
     var danmuCoordinator = DanmuView.Coordinator() // 屏幕弹幕协调器
     let danmuShootScheduler = DanmakuShootScheduler() // §6.2 去突发:把批量弹幕摊开逐条发射
     var danmuSettings = DanmuSettingModel() // 弹幕设置模型
+    var liveCaption = LiveCaptionController() // 英语→中文实时翻译
     private var shouldReconnectDanmuOnActive = false
     var supportsDanmu: Bool {
         PlatformCapability.supports(.danmaku, for: currentRoom.liveType)
