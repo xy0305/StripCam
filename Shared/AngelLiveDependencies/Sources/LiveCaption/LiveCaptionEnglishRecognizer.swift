@@ -91,6 +91,7 @@ public final class LiveCaptionEnglishRecognizer: LiveCaptionRecognizing, @unchec
 
         final class Once: @unchecked Sendable {
             var done = false
+            var task: SFSpeechRecognitionTask?
             let lock = NSLock()
             func claim() -> Bool {
                 lock.lock(); defer { lock.unlock() }
@@ -101,7 +102,7 @@ public final class LiveCaptionEnglishRecognizer: LiveCaptionRecognizing, @unchec
         }
         let once = Once()
         return try await withCheckedThrowingContinuation { cont in
-            let task = legacy.recognitionTask(with: req) { result, error in
+            once.task = legacy.recognitionTask(with: req) { result, error in
                 if let result, result.isFinal {
                     if once.claim() { cont.resume(returning: result.bestTranscription.formattedString) }
                 } else if let error {
@@ -112,7 +113,7 @@ public final class LiveCaptionEnglishRecognizer: LiveCaptionRecognizing, @unchec
             Task {
                 try? await Task.sleep(nanoseconds: 8_000_000_000)
                 if once.claim() {
-                    task.cancel()
+                    once.task?.cancel()
                     cont.resume(returning: "")
                 }
             }

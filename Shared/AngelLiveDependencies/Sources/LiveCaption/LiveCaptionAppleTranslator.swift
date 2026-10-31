@@ -98,7 +98,7 @@ public final class LiveCaptionTranslationBridge: LiveCaptionTranslating, @unchec
 
     private func makeStream() {
         lock.lock(); defer { lock.unlock() }
-        let (s, c) = AsyncStream.makeStream()
+        let (s, c) = AsyncStream.makeStream(of: Request.self)
         stream = s
         continuation = c
     }
@@ -141,7 +141,7 @@ public final class LiveCaptionTranslationBridge: LiveCaptionTranslating, @unchec
             // prepareTranslation inside serve() will prompt download when the host attaches.
             return
         }
-        guard st == .installed || st == .supported || st == .needsDownload else {
+        guard st == .installed || st == .needsDownload else {
             throw LiveCaptionEngineError.translationUnsupported
         }
     }
