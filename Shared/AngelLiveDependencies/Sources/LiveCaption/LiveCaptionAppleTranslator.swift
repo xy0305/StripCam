@@ -116,6 +116,9 @@ public final class LiveCaptionTranslationBridge: LiveCaptionTranslating, @unchec
         }
     }
 
+    /// Runs on the MainActor like SwiftUI's `.translationTask` closure, so the non-Sendable
+    /// `TranslationSession` never crosses an isolation boundary.
+    @MainActor
     public func serve(_ session: TranslationSession) async {
         try? await session.prepareTranslation()
         let s: AsyncStream<Request>? = {
@@ -123,7 +126,7 @@ public final class LiveCaptionTranslationBridge: LiveCaptionTranslating, @unchec
             return stream
         }()
         guard let s else { return }
-        await MainActor.run { attached = true }
+        attached = true
         for await req in s {
             do {
                 let out = try await session.translate(req.text).targetText
@@ -132,7 +135,7 @@ public final class LiveCaptionTranslationBridge: LiveCaptionTranslating, @unchec
                 req.reply.resume(throwing: error)
             }
         }
-        await MainActor.run { attached = false }
+        attached = false
     }
 
     public func prepare() async throws {
